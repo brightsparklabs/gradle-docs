@@ -1,8 +1,14 @@
 # gradle-docs
 
+[![Build Status
+master](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=master)](https://travis-ci.org/brightsparklabs/gradle-docs)
+[![Gradle Plugin](https://img.shields.io/badge/gradle-latest-blue)](https://plugins.gradle.org/plugin/com.brightsparklabs.gradle.docs)
+
 Applies brightSPARK Labs standardisation to project documentation.
 
 ## Build
+
+Development Status: [![Build Status develop](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=develop)](https://travis-ci.org/brightsparklabs/gradle-docs)
 
 ```shell
 ./gradlew build
@@ -17,7 +23,13 @@ Applies brightSPARK Labs standardisation to project documentation.
 // file: build.gradle
 
 plugins {
+    // Applies brightSPARK Labs standardisation to project documentation.
     id 'com.brightsparklabs.gradle.docs' version '<version>'
+}
+
+// Define repositories to ensure plugin dependencies libraries can be resolved.
+repositories {
+    jcenter()
 }
 ```
 
@@ -91,6 +103,7 @@ file:
   #   docs/introduction.j2.yaml -> Template specific variables YAML file.
   vars:
     ...
+```
 
 The values from the above context can be referenced using standard Jinja2 references. E.g.
 
