@@ -65,42 +65,80 @@ public class DocsPlugin implements Plugin<Project> {
                     into jinjaOutputDir
                 }
 
+                Map<String, Object> sysContext = [
+                    project_name: project.name,
+                    project_description: project.description,
+                    version: project.version,
+                    build_timestamp: ZonedDateTime.now(),
+                ]
+                String repoLastCommitHash = "git log -n 1 --pretty=format:%h".execute().text.trim()
+                if (! repoLastCommitHash.isEmpty()) {
+                    sysContext.put("last_commit_hash", repoLastCommitHash)
+                }
+                String repoLastCommitTimestamp = "git log -n 1 --pretty=format:%cI".execute().text.trim()
+                if (! repoLastCommitHash.isEmpty()) {
+                    sysContext.put("last_commit_timestamp", ZonedDateTime.parse(repoLastCommitTimestamp))
+                }
+
                 // Build Jinja2 context.
                 Yaml yaml = new Yaml()
                 String yamlText = project.file(config.variablesFile).text
                 Map<String, Object> context = [
                     vars: yaml.load(yamlText),
-                    sys: [
-                        name: project.name,
-                        description: project.description,
-                        version: project.version,
-                        build_timestamp: ZonedDateTime.now(),
-                    ]
+                    sys: sysContext,
                 ]
 
                 // Process templates.
                 JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
                         // Fail if templates reference non-existent variables
-                        //.withFailOnUnknownTokens(true)
+                        .withFailOnUnknownTokens(true)
                         .build();
                 Jinjava jinjava = new Jinjava(jinjavaConfig)
                 jinjaOutputDir.traverse(type: groovy.io.FileType.FILES) { file ->
-                    // Start with clean file variables each time.
-                    context.remove('file_vars')
+                    // Start with clean file context each time.
+                    context.remove('file')
 
                     // Ignore file if it is not a Jinja2 template
-                    if (file.name.endsWith(".j2")) {
-                        // Include file vars if present.
-                        File fileVariables = new File(file.getAbsolutePath() + ".yaml")
-                        if (fileVariables.exists()) {
-                            String fileVariablesYamlText = fileVariables.text
-                            context.put('file_vars', yaml.load(fileVariablesYamlText))
-                        }
-
-                        // Render template and drop the '.j2' extension
-                        file.text = jinjava.render(file.text, context)
-                        file.renameTo(file.path.replace(".j2", ""))
+                    if (! file.name.endsWith(".j2")) {
+                        logger.info("Skipping non-Jinja2 template [${file}]")
+                        return
                     }
+
+                    String srcFile = file.getPath().replaceFirst(
+                            jinjaOutputDir.toString(),
+                            new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
+                            )
+                    Map<String, Object> fileContext = [
+                        name: file.getName().replaceFirst(/\.j2$/, ""),
+                        path: srcFile.toString().replaceFirst(/\.j2$/, ""),
+                        src_name: file.getName(),
+                        src_path: srcFile.toString()
+                    ]
+
+                    String fileLastCommitHash = "git log -n 1 --pretty=format:%h -- ${srcFile}".execute().text.trim()
+                    if (! fileLastCommitHash.isEmpty()) {
+                        fileContext.put("last_commit_hash", fileLastCommitHash)
+                    }
+                    String fileLastCommitTimestamp = "git log -n 1 --pretty=format:%cI -- ${srcFile}".execute().text.trim()
+                    if (! fileLastCommitHash.isEmpty()) {
+                        fileContext.put("last_commit_timestamp", ZonedDateTime.parse(fileLastCommitTimestamp))
+                    }
+
+                    // Include file vars if present.
+                    File fileVariables = new File(file.getAbsolutePath() + ".yaml")
+                    if (fileVariables.exists()) {
+                        String fileVariablesYamlText = fileVariables.text
+                        fileContext.put('vars', yaml.load(fileVariablesYamlText))
+                    }
+
+                    context.put('file', fileContext)
+
+                    logger.info("Using file context: ${fileContext}")
+                    logger.debug("Using context: ${context}")
+
+                    // Render template and drop the '.j2' extension
+                    file.text = jinjava.render(file.text, context)
+                    file.renameTo(file.path.replaceFirst(/\.j2$/, ""))
                 }
             }
         }

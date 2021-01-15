@@ -36,20 +36,50 @@ Running `./gradlew build` will generate PDF and HTML of the documentation.
 The context provided to the Jinja2 rendering engine has the following format:
 
 ```
+# System variables.
 sys:
   # The `project.name` set in Gradle.
-  name: <name>
+  project_name: <name>
+
   # The `project.description` set in Gradle.
-  description: <description>
+  project_description: <description>
+
   # The `project.version` set in Gradle.
   version: <version>
+
   # The time the build was run.
   build_timestamp: <timestamp>
 
-vars:
-  # User defined variables from global variables YAML file. Default: `docs/variables.yaml`).
+  # Last git commit hash of the repo (only present if repo is under git control).
+  last_commit_hash: <hash>
 
-file_vars:
+  # Last git commit timestamp of the repo (only present if repo is under git control).
+  last_commit_timestamp: <timestamp>
+
+# User defined variables from global variables YAML file (default: `docs/variables.yaml`).
+vars:
+  ...
+
+# File variables.
+file:
+  # The name of the output file.
+  name: <name>
+
+  # The relative path of of the output file.
+  path: <path>
+
+  # The name of the source template file.
+  src_name: <name>
+
+  # The relative path of of the source template file.
+  src_path: <path>
+
+  # Last git commit hash of the file (only present if file is under git control).
+  last_commit_hash: <hash>
+
+  # Last git commit timestamp of the file (only present if file is under git control).
+  last_commit_timestamp: <timestamp>
+
   # User defined variables from template specific variables YAML file (if present).
   #
   # A template specific variables file must be named the same as the Jinja2 template file with
@@ -59,6 +89,14 @@ file_vars:
   #
   #   docs/introduction.j2      -> Jinja2 template file.
   #   docs/introduction.j2.yaml -> Template specific variables YAML file.
+  vars:
+    ...
+
+The values from the above context can be referenced using standard Jinja2 references. E.g.
+
+    {{ sys.version }}
+
+    {{ file.last_commit_timestamp | datetimeformat("%Y-%m-%d at %H:%M %p %Z", "Australia/Sydney") }}
 
 ## Tasks
 
