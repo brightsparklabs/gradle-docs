@@ -52,6 +52,25 @@ public class DocsPlugin implements Plugin<Project> {
      * @param jinjaOutputDir Directory to output rendered Jinja2 templates.
      */
     private void setupJinjaPreProcessingTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
+        project.task('cleanJinjaPreProcess') {
+            group = "brightSPARK Labs - Docs"
+            description = "Cleans the Jinja2 processed documents out of the build directory"
+
+            doLast {
+                jinjaOutputDir.delete()
+            }
+        }
+        // Use `afterEvaluate` in case another task add the `clean` task.
+        project.afterEvaluate {
+            if (! project.tasks.findByName('cleand')) {
+                project.task('cleadn') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Cleans the documentation."
+                }
+            }
+            project.clean.dependsOn project.cleanJinjaPreProcess
+        }
+
         project.task('jinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Performs Jinja2 pre-processing on documents"
@@ -60,6 +79,7 @@ public class DocsPlugin implements Plugin<Project> {
                 // Copy the entire directory and render files in-place to make
                 // keeping output folder structures intact easier.
                 jinjaOutputDir.delete()
+                jinjaOutputDir.mkdirs()
                 project.copy {
                     from project.file(config.docsDir)
                     into jinjaOutputDir
@@ -68,7 +88,7 @@ public class DocsPlugin implements Plugin<Project> {
                 Map<String, Object> sysContext = [
                     project_name: project.name,
                     project_description: project.description,
-                    version: project.version,
+                    project_version: project.version,
                     build_timestamp: ZonedDateTime.now(),
                 ]
                 String repoLastCommitHash = "git log -n 1 --pretty=format:%h".execute().text.trim()
@@ -82,11 +102,18 @@ public class DocsPlugin implements Plugin<Project> {
 
                 // Build Jinja2 context.
                 Yaml yaml = new Yaml()
-                String yamlText = project.file(config.variablesFile).text
                 Map<String, Object> context = [
-                    vars: yaml.load(yamlText),
                     sys: sysContext,
                 ]
+
+                File variablesFile = project.file(config.variablesFile)
+                if (variablesFile.exists()) {
+                    String yamlText = variablesFile.text
+                    context.put('vars', yaml.load(yamlText))
+                }
+                else {
+                    logger.warn("Not adding global variables to Jinja2 context as no file found at [${variablesFile}]")
+                }
 
                 // Process templates.
                 JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
@@ -142,6 +169,7 @@ public class DocsPlugin implements Plugin<Project> {
                 }
             }
         }
+        project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
     }
 
     /**
@@ -155,14 +183,17 @@ public class DocsPlugin implements Plugin<Project> {
         project.plugins.apply 'org.asciidoctor.jvm.convert'
         project.plugins.apply 'org.asciidoctor.jvm.pdf'
 
-        if (! project.tasks.findByName('build')) {
-            project.task('build') {
-                group = "brightSPARK Labs - Docs"
-                description = "Builds the documentation."
+        // Use `afterEvaluate` in case another task add the `build` task.
+        project.afterEvaluate {
+            if (! project.tasks.findByName('build')) {
+                project.task('build') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Builds the documentation."
+                }
             }
+            project.build.dependsOn project.asciidoctor
+            project.asciidoctor.dependsOn project.jinjaPreProcess
         }
-        project.build.dependsOn project.asciidoctor
-        project.asciidoctor.dependsOn project.jinjaPreProcess
 
         // creating aliases nested under our BSL group for clarity
         project.task('bslAsciidoctor') {

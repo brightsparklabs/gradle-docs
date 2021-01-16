@@ -35,8 +35,8 @@ repositories {
 
 By default:
 
-- AsciiDoc files should be stored under `docs/`.
-- Images should be stored under `docs/images`, which can then be referenced via [AsciiDoc image
+- AsciiDoc files should be stored under `src/docs/`.
+- Images should be stored under `src/images`, which can then be referenced via [AsciiDoc image
   macros](https://docs.asciidoctor.org/asciidoc/latest/macros/images/).
 - Any files ending with `.j2` will first be processed by
   [Jinjava](https://github.com/HubSpot/jinjava) (Java port of Python Jinja2).
@@ -57,7 +57,7 @@ sys:
   project_description: <description>
 
   # The `project.version` set in Gradle.
-  version: <version>
+  project_version: <version>
 
   # The time the build was run.
   build_timestamp: <timestamp>
@@ -68,7 +68,7 @@ sys:
   # Last git commit timestamp of the repo (only present if repo is under git control).
   last_commit_timestamp: <timestamp>
 
-# User defined variables from global variables YAML file (default: `docs/variables.yaml`).
+# User defined variables from global variables YAML file (default: `src/variables.yaml`).
 vars:
   ...
 
@@ -99,15 +99,15 @@ file:
   #
   # E.g.
   #
-  #   docs/introduction.j2      -> Jinja2 template file.
-  #   docs/introduction.j2.yaml -> Template specific variables YAML file.
+  #   src/docs/introduction.j2      -> Jinja2 template file.
+  #   src/docs/introduction.j2.yaml -> Template specific variables YAML file.
   vars:
     ...
 ```
 
 The values from the above context can be referenced using standard Jinja2 references. E.g.
 
-    {{ sys.version }}
+    {{ sys.project_version }}
 
     {{ file.last_commit_timestamp | datetimeformat("%Y-%m-%d at %H:%M %p %Z", "Australia/Sydney") }}
 
@@ -140,19 +140,19 @@ Use the following configuration block to configure the plugin:
 ```groovy
 // file: build.gradle
 
-project.version = 'v1.2.0-RC'
+project.version = 'git describe --always --dirty'.execute().text.trim()
 
 docsPluginConfig {
     // YAML file containing context variables used when rendering Jinja2 templates.
-    // Default: `docs/variables.yaml`.
+    // Default: `src/variables.yaml`.
     variablesFile: src/my-variables.yaml
 
     // Name of the directory (relative to project root) containing the documents to process.
-    // Default: `docs/`.
-    docsDir: src/
+    // Default: `src/docs/`.
+    docsDir: asciiDocs/
 
     // Name of the directory (relative to project root) containing the images.
-    // Default: `docs/images`.
+    // Default: `src/images`.
     imagesDir: images/
 }
 ```
