@@ -19,4 +19,7 @@ class DocsPluginExtension {
 
     /** Name of the directory (relative to project root) containing the images. Default: `src/images`. */
     String imagesDir = 'src/images/'
+
+    /** Position to place the Table of Contents. Default `left`. */
+    String tocPosition = 'left'
 }
