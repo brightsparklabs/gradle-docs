@@ -321,7 +321,7 @@ public class DocsPlugin implements Plugin<Project> {
                             'imagesdir'          : project.file(config.imagesDir),
                             'numbered'           : '',
                             'source-highlighter' : 'coderay',
-                            'toc'                : 'left'
+                            'toc'                : config.tocPosition
                 }
             }
         }

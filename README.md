@@ -217,15 +217,20 @@ project.version = 'git describe --always --dirty'.execute().text.trim()
 docsPluginConfig {
     // YAML file containing context variables used when rendering Jinja2 templates.
     // Default: `src/variables.yaml`.
-    variablesFile: src/my-variables.yaml
+    variablesFile = 'src/my-variables.yaml'
 
     // Name of the directory (relative to project root) containing the documents to process.
     // Default: `src/docs/`.
-    docsDir: asciiDocs/
+    docsDir = 'asciiDocs/'
 
     // Name of the directory (relative to project root) containing the images.
     // Default: `src/images`.
-    imagesDir: images/
+    imagesDir = 'images/'
+
+    // Position for the Table of Contents. Refer to:
+    //  - https://docs.asciidoctor.org/asciidoc/latest/toc/position
+    // Default: `left`.
+    tocPosition = 'macro'
 }
 ```
 
