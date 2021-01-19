@@ -85,20 +85,14 @@ public class DocsPlugin implements Plugin<Project> {
                     into jinjaOutputDir
                 }
 
+                def now = ZonedDateTime.now()
                 Map<String, Object> sysContext = [
                     project_name: project.name,
                     project_description: project.description,
                     project_version: project.version,
-                    build_timestamp: ZonedDateTime.now(),
+                    build_timestamp: now,
+                    repo_last_commit: getLastCommit('.', now),
                 ]
-                String repoLastCommitHash = "git log -n 1 --pretty=format:%h".execute().text.trim()
-                if (! repoLastCommitHash.isEmpty()) {
-                    sysContext.put("last_commit_hash", repoLastCommitHash)
-                }
-                String repoLastCommitTimestamp = "git log -n 1 --pretty=format:%cI".execute().text.trim()
-                if (! repoLastCommitHash.isEmpty()) {
-                    sysContext.put("last_commit_timestamp", ZonedDateTime.parse(repoLastCommitTimestamp))
-                }
 
                 // Build Jinja2 context.
                 Yaml yaml = new Yaml()
@@ -110,6 +104,9 @@ public class DocsPlugin implements Plugin<Project> {
                 if (variablesFile.exists()) {
                     String yamlText = variablesFile.text
                     context.put('vars', yaml.load(yamlText))
+
+                    Map<String, Object> variablesFileLastCommit = getLastCommit(config.variablesFile, now)
+                    context.put('vars_file_last_commit', variablesFileLastCommit)
                 }
                 else {
                     logger.warn("Not adding global variables to Jinja2 context as no file found at [${variablesFile}]")
@@ -121,55 +118,119 @@ public class DocsPlugin implements Plugin<Project> {
                         .withFailOnUnknownTokens(true)
                         .build();
                 Jinjava jinjava = new Jinjava(jinjavaConfig)
-                jinjaOutputDir.traverse(type: groovy.io.FileType.FILES) { file ->
-                    // Start with clean file context each time.
-                    context.remove('file')
-
+                jinjaOutputDir.traverse(type: groovy.io.FileType.FILES) { templateFile ->
                     // Ignore file if it is not a Jinja2 template
-                    if (! file.name.endsWith(".j2")) {
-                        logger.info("Skipping non-Jinja2 template [${file}]")
+                    if (! templateFile.name.endsWith(".j2")) {
+                        logger.info("Skipping non-Jinja2 template [${templateFile}]")
                         return
                     }
 
-                    String srcFile = file.getPath().replaceFirst(
+                    String templateSrcFile = templateFile.getPath().replaceFirst(
                             jinjaOutputDir.toString(),
                             new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
                             )
+                    String templateOutputFileName = templateFile.getName().replaceFirst(/\.j2$/, '')
+                    File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
                     Map<String, Object> fileContext = [
-                        name: file.getName().replaceFirst(/\.j2$/, ""),
-                        path: srcFile.toString().replaceFirst(/\.j2$/, ""),
-                        src_name: file.getName(),
-                        src_path: srcFile.toString()
+                        output_file_name: templateOutputFileName,
+                        output_file_path: templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
+                        template_file_name: templateFile.getName(),
+                        template_file_path: templateSrcFile.replaceFirst(config.docsDir + '/?', ''),
+                        template_file_last_commit: getLastCommit(templateSrcFile, now),
                     ]
 
-                    String fileLastCommitHash = "git log -n 1 --pretty=format:%h -- ${srcFile}".execute().text.trim()
-                    if (! fileLastCommitHash.isEmpty()) {
-                        fileContext.put("last_commit_hash", fileLastCommitHash)
-                    }
-                    String fileLastCommitTimestamp = "git log -n 1 --pretty=format:%cI -- ${srcFile}".execute().text.trim()
-                    if (! fileLastCommitHash.isEmpty()) {
-                        fileContext.put("last_commit_timestamp", ZonedDateTime.parse(fileLastCommitTimestamp))
-                    }
-
                     // Include file vars if present.
-                    File fileVariables = new File(file.getAbsolutePath() + ".yaml")
+                    File fileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
                     if (fileVariables.exists()) {
                         String fileVariablesYamlText = fileVariables.text
                         fileContext.put('vars', yaml.load(fileVariablesYamlText))
+
+                        String fileVariablesSrcFile = templateFile.getPath().replaceFirst(
+                                jinjaOutputDir.toString(),
+                                new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
+                                )
+                        Map<String, Object> fileVariablesFileLastCommit = getLastCommit(fileVariablesSrcFile, now)
+                        fileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
+                        fileVariables.delete()
+                    }
+                    context.put('file', fileContext)
+                    logger.info("Using file context: ${fileContext}")
+
+                    // Process instances if present.
+                    File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
+                    if (instancesDir.exists() && instancesDir.isDirectory()) {
+                        instancesDir.traverse(type: groovy.io.FileType.FILES) { instanceFile ->
+                            // Ignore file if it is not a yaml file
+                            if (! instanceFile.name.endsWith(".yaml")) {
+                                logger.info("Skipping non-YAML instance file [${instanceFile}]")
+                                return
+                            }
+
+                            String instanceSrcFile = instanceFile.getPath().replaceFirst(
+                                    jinjaOutputDir.toString(),
+                                    new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
+                                    )
+                            // We want to output the file at the same level as the template file.
+                            String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
+                            File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
+                            Map<String, Object> instanceContext = [
+                                output_file_name: instanceOutputFileName,
+                                output_file_path: instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
+                                instance_file_name: instanceFile.getName(),
+                                instance_file_path: instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
+                                instance_file_last_commit: getLastCommit(instanceSrcFile, now),
+                            ]
+
+                            String instanceFileVariablesYamlText = instanceFile.text
+                            instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
+
+                            context.put('instance', instanceContext)
+                            logger.info("Using instance context: ${instanceContext}")
+
+                            logger.debug("Using context: ${context}")
+                            instanceOutputFile.text = jinjava.render(templateFile.text, context)
+
+                            // clean out context and instance file
+                            context.remove('instance')
+                            instanceFile.delete()
+                        }
+                        instancesDir.delete()
+                    }
+                    else {
+                        // No instances, just process in place.
+                        logger.debug("Using context: ${context}")
+                        templateOutputFile.text = jinjava.render(templateFile.text, context)
                     }
 
-                    context.put('file', fileContext)
-
-                    logger.info("Using file context: ${fileContext}")
-                    logger.debug("Using context: ${context}")
-
-                    // Render template and drop the '.j2' extension
-                    file.text = jinjava.render(file.text, context)
-                    file.renameTo(file.path.replaceFirst(/\.j2$/, ""))
+                    // clean out context and template
+                    context.remove('file')
+                    templateFile.delete()
                 }
             }
         }
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
+    }
+
+    /**
+     * Gets the last commit for the specified path.
+     *
+     * @param defaultTimestamp Timestamp to return if the specified file is not under git control.
+     *
+     * @return Map containing details of the commit as follows:
+     *         <pre>
+     *         [
+     *           hash: <commmit_hash> # default to `unspecified` if path is not under git control.
+     *           timestamp: <commmit_timestamp> # default to supplied timestamp if path is not under git control.
+     *         ]
+     *         </pre>
+     */
+    private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
+        final Map<String, Object> result = [:]
+        String lastCommitHash = "git log -n 1 --pretty=format:%h -- ${relativeFilePath}".execute().text.trim()
+        result.put("hash", lastCommitHash.isEmpty() ? 'unspecified' : lastCommitHash)
+        String lastCommitTimestamp = "git log -n 1 --pretty=format:%cI -- ${relativeFilePath}".execute().text.trim()
+        result.put("timestamp", lastCommitTimestamp.isEmpty() ? defaultTimestamp : ZonedDateTime.parse(lastCommitTimestamp))
+        return result
     }
 
     /**

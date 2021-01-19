@@ -62,35 +62,47 @@ sys:
   # The time the build was run.
   build_timestamp: <timestamp>
 
-  # Last git commit hash of the repo (only present if repo is under git control).
-  last_commit_hash: <hash>
+  # Details of the last git commit on the repo.
+  repo_last_commit:
+    # The git commit hash (defaults to `unspecified` if project not under git control).
+    hash: <hash>
 
-  # Last git commit timestamp of the repo (only present if repo is under git control).
-  last_commit_timestamp: <timestamp>
+    # The git commit timestamp (defaults to build timestamp if project not under git control).
+    timestamp: <timestamp>
 
 # User defined variables from global variables YAML file (default: `src/variables.yaml`).
 vars:
   ...
 
+# Details of the last git commit on the global variables YAML file.
+vars_file_last_commit:
+  # The git commit hash (defaults to `unspecified` if file not under git control).
+  hash: <hash>
+
+  # The git commit timestamp (defaults to build timestamp if file not under git control).
+  timestamp: <timestamp>
+
 # File variables.
 file:
   # The name of the output file.
-  name: <name>
+  output_file_name: <name>
 
-  # The relative path of of the output file.
-  path: <path>
+  # The relative path (in output directory) of the output file.
+  output_file_path: <path>
 
   # The name of the source template file.
-  src_name: <name>
+  template_file_name: <name>
 
-  # The relative path of of the source template file.
-  src_path: <path>
+  # The relative path (in docs directory) of the source template file.
+  template_file_path: <path>
 
-  # Last git commit hash of the file (only present if file is under git control).
-  last_commit_hash: <hash>
+  # Details of the last git commit on the global variables YAML file.
+  template_file_last_commit:
+    # The git commit hash (defaults to `unspecified` if file not under git control).
+    hash: <hash>
 
-  # Last git commit timestamp of the file (only present if file is under git control).
-  last_commit_timestamp: <timestamp>
+    # The git commit timestamp (defaults to build timestamp if file not under git control).
+    timestamp: <timestamp>
 
   # User defined variables from template specific variables YAML file (if present).
   #
@@ -101,6 +113,56 @@ file:
   #
   #   src/docs/introduction.j2      -> Jinja2 template file.
   #   src/docs/introduction.j2.yaml -> Template specific variables YAML file.
+  vars:
+    ...
+
+  # Details of the last git commit on the template specific variables YAML file (if present).
+  vars_file_last_commit:
+    # The git commit hash (defaults to `unspecified` if file not under git control).
+    hash: <hash>
+
+    # The git commit timestamp (defaults to build timestamp if file not under git control).
+    timestamp: <timestamp>
+
+# User defined variables from instance variable file (if present).
+#
+# Instance variables file must be stored in a directory with the same name as the Jinja2 template
+# file with `.d` appended. Each `.yaml` file under this directory will be rendered against the
+# corresponding Jinja2 template file.
+#
+# E.g.
+#
+#   src/docs/sops/sop-template.j2                        -> Jinja2 template file.
+#   src/docs/sops/sop-template.j2.d/                     -> Instance variables directory.
+#   src/docs/sops/sop-template.j2.d/restart-servers.yaml -> Instance variables file.
+#   src/docs/sops/sop-template.j2.d/purge-logs.yaml      -> Instance variables file.
+#
+# Will result in the following output directory structure:
+#
+#   sops/restart-servers.pdf
+#   sops/purge-logs.pdf
+instance:
+  # The name of the output file.
+  output_file_name: <name>
+
+  # The relative path (in output directory) of the output file.
+  output_file_path: <path>
+
+  # The name of the source template file.
+  instance_file_name: <name>
+
+  # The relative path (in docs directory) of the source template file.
+  instance_file_path: <path>
+
+  # Details of the last git commit on the global variables YAML file.
+  instance_file_last_commit:
+    # The git commit hash (defaults to `unspecified` if file not under git control).
+    hash: <hash>
+
+    # The git commit timestamp (defaults to build timestamp if file not under git control).
+    timestamp: <timestamp>
+
+  # Variables from the current instance variable file.
   vars:
     ...
 ```
