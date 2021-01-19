@@ -129,32 +129,43 @@ public class DocsPlugin implements Plugin<Project> {
                             jinjaOutputDir.toString(),
                             new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
                             )
+                    Map<String, Object> templateFileLastCommit = getLastCommit(templateSrcFile, now)
                     String templateOutputFileName = templateFile.getName().replaceFirst(/\.j2$/, '')
                     File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
-                    Map<String, Object> fileContext = [
-                        output_file_name: templateOutputFileName,
-                        output_file_path: templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
-                        template_file_name: templateFile.getName(),
-                        template_file_path: templateSrcFile.replaceFirst(config.docsDir + '/?', ''),
-                        template_file_last_commit: getLastCommit(templateSrcFile, now),
+                    Map<String, Object> templateFileContext = [
+                        name: templateFile.getName(),
+                        // Relative to docs directory.
+                        path: templateSrcFile.replaceFirst(config.docsDir + '/?', ''),
+                        last_commit: templateFileLastCommit,
                     ]
+                    context.put('template_file', templateFileContext)
+
+                    Map<String, Object> outputFileContext = [
+                        name: templateOutputFileName,
+                        // Relative to output directory.
+                        path: templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
+                        last_commit: templateFileLastCommit,
+                    ]
+                    context.put('output_file', outputFileContext)
 
                     // Include file vars if present.
                     File fileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
                     if (fileVariables.exists()) {
                         String fileVariablesYamlText = fileVariables.text
-                        fileContext.put('vars', yaml.load(fileVariablesYamlText))
+                        templateFileContext.put('vars', yaml.load(fileVariablesYamlText))
 
                         String fileVariablesSrcFile = templateFile.getPath().replaceFirst(
                                 jinjaOutputDir.toString(),
-                                new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
-                                )
+                                new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
+                                ) + '.yaml'
                         Map<String, Object> fileVariablesFileLastCommit = getLastCommit(fileVariablesSrcFile, now)
-                        fileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
+                        templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
+                        if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp)) {
+                            templateFileContext.last_commit = fileVariablesFileLastCommit
+                        }
                         fileVariables.delete()
                     }
-                    context.put('file', fileContext)
-                    logger.info("Using file context: ${fileContext}")
+                    logger.info("Using file context: ${templateFileContext}")
 
                     // Process instances if present.
                     File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
@@ -168,30 +179,42 @@ public class DocsPlugin implements Plugin<Project> {
 
                             String instanceSrcFile = instanceFile.getPath().replaceFirst(
                                     jinjaOutputDir.toString(),
-                                    new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
+                                    new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
                                     )
+                            Map<String, Object> instanceFileLastCommit = getLastCommit(instanceSrcFile, now)
                             // We want to output the file at the same level as the template file.
                             String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
                             File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
                             Map<String, Object> instanceContext = [
-                                output_file_name: instanceOutputFileName,
-                                output_file_path: instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
-                                instance_file_name: instanceFile.getName(),
-                                instance_file_path: instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
-                                instance_file_last_commit: getLastCommit(instanceSrcFile, now),
+                                name: instanceFile.getName(),
+                                // Relative to docs directory.
+                                path: instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
+                                last_commit: instanceFileLastCommit,
                             ]
+                            context.put('instance_file', instanceContext)
+
+                            outputFileContext.name = instanceOutputFileName
+                            outputFileContext.path = instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', '')
 
                             String instanceFileVariablesYamlText = instanceFile.text
                             instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
 
-                            context.put('instance', instanceContext)
                             logger.info("Using instance context: ${instanceContext}")
+
+                            // Cache current last commit so next instance can cleanly compare.
+                            def cachedLastCommit = outputFileContext.last_commit
+                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp)) {
+                                outputFileContext.last_commit = instanceFileLastCommit
+                            }
 
                             logger.debug("Using context: ${context}")
                             instanceOutputFile.text = jinjava.render(templateFile.text, context)
 
-                            // clean out context and instance file
-                            context.remove('instance')
+                            // Restore cached last commit so next instance can cleanly compare.
+                            templateFileContext.last_commit = cachedLastCommit
+
+                            // Clean out context and instance file.
+                            context.remove('instance_file')
                             instanceFile.delete()
                         }
                         instancesDir.delete()
@@ -203,7 +226,8 @@ public class DocsPlugin implements Plugin<Project> {
                     }
 
                     // clean out context and template
-                    context.remove('file')
+                    context.remove('template_file')
+                    context.remove('output_file')
                     templateFile.delete()
                 }
             }

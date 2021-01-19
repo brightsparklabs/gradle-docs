@@ -82,22 +82,16 @@ vars_file_last_commit:
   # The git commit timestamp (defaults to build timestamp if file not under git control).
   timestamp: <timestamp>
 
-# File variables.
-file:
-  # The name of the output file.
-  output_file_name: <name>
-
-  # The relative path (in output directory) of the output file.
-  output_file_path: <path>
-
+# (Dynamic) Variables pertaining to the CURRENT template being rendered.
+template_file:
   # The name of the source template file.
-  template_file_name: <name>
+  name: <name>
 
   # The relative path (in docs directory) of the source template file.
-  template_file_path: <path>
+  path: <path>
 
-  # Details of the last git commit on the global variables YAML file.
-  template_file_last_commit:
+  # Details of the last git commit on the template file.
+  last_commit:
     # The git commit hash (defaults to `unspecified` if file not under git control).
     hash: <hash>
 
@@ -124,9 +118,10 @@ file:
     # The git commit timestamp (defaults to build timestamp if file not under git control).
     timestamp: <timestamp>
 
-# User defined variables from instance variable file (if present).
+# (Dynamic) User defined variables from the CURRENT instance variable file being processed (if
+# present).
 #
-# Instance variables file must be stored in a directory with the same name as the Jinja2 template
+# Instance variable files must be stored under a directory with the same name as the Jinja2 template
 # file with `.d` appended. Each `.yaml` file under this directory will be rendered against the
 # corresponding Jinja2 template file.
 #
@@ -141,30 +136,45 @@ file:
 #
 #   sops/restart-servers.pdf
 #   sops/purge-logs.pdf
-instance:
-  # The name of the output file.
-  output_file_name: <name>
+instance_file:
+  # The name of the instance variable YAML file.
+  name: <name>
 
-  # The relative path (in output directory) of the output file.
-  output_file_path: <path>
+  # The relative path (in docs directory) of the instance variables YAML file.
+  path: <path>
 
-  # The name of the source template file.
-  instance_file_name: <name>
-
-  # The relative path (in docs directory) of the source template file.
-  instance_file_path: <path>
-
-  # Details of the last git commit on the global variables YAML file.
-  instance_file_last_commit:
+  # Details of the last git commit on the instance variables YAML file.
+  last_commit:
     # The git commit hash (defaults to `unspecified` if file not under git control).
     hash: <hash>
 
     # The git commit timestamp (defaults to build timestamp if file not under git control).
     timestamp: <timestamp>
 
-  # Variables from the current instance variable file.
+  # Variables from the instance variables file.
   vars:
     ...
+
+# (Dynamic) Details of the CURRENT file being rendered.
+output_file:
+  # The name of the output file.
+  name: <name>
+
+  # The relative path (in output directory) of the output file.
+  path: <path>
+
+  # Details of the last git commit identified which has had an impact on the content in the
+  # generated output file. It is the most LATEST timestamp found amongst:
+  #
+  # - vars_file_last_commit
+  # - template_file.last_commit
+  # - instance_file.last_commit
+  last_commit:
+    # The git commit hash.
+    hash: <hash>
+
+    # The git commit timestamp.
+    timestamp: <timestamp>
 ```
 
 The values from the above context can be referenced using standard Jinja2 references. E.g.
