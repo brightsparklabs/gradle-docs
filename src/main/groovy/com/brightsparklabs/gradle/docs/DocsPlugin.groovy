@@ -250,9 +250,16 @@ public class DocsPlugin implements Plugin<Project> {
      */
     private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
         final Map<String, Object> result = [:]
-        String lastCommitHash = "git log -n 1 --pretty=format:%h -- ${relativeFilePath}".execute().text.trim()
+        // NOTE: Use array execution instead of string execution in case parameters contain spaces
+        def lastCommitHashCommand = 'git log -n 1 --pretty=format:%h --'.tokenize()
+        lastCommitHashCommand << relativeFilePath
+        String lastCommitHash = lastCommitHashCommand.execute().text.trim()
         result.put("hash", lastCommitHash.isEmpty() ? 'unspecified' : lastCommitHash)
-        String lastCommitTimestamp = "git log -n 1 --pretty=format:%cI -- ${relativeFilePath}".execute().text.trim()
+
+        // NOTE: Use array execution instead of string execution in case parameters contain spaces
+        def lastCommitTimestampCommand = 'git log -n 1 --pretty=format:%aI --'.tokenize()
+        lastCommitTimestampCommand << relativeFilePath
+        String lastCommitTimestamp = lastCommitTimestampCommand.execute().text.trim()
         result.put("timestamp", lastCommitTimestamp.isEmpty() ? defaultTimestamp : ZonedDateTime.parse(lastCommitTimestamp))
         return result
     }
