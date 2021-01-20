@@ -127,10 +127,10 @@ template_file:
 #
 # E.g.
 #
-#   src/docs/sops/sop-template.j2                        -> Jinja2 template file.
-#   src/docs/sops/sop-template.j2.d/                     -> Instance variables directory.
-#   src/docs/sops/sop-template.j2.d/restart-servers.yaml -> Instance variables file.
-#   src/docs/sops/sop-template.j2.d/purge-logs.yaml      -> Instance variables file.
+#   src/docs/sops/sop-template.j2                             -> Jinja2 template file.
+#   src/docs/sops/sop-template.j2.d/                          -> Instance variables directory.
+#   src/docs/sops/sop-template.j2.d/restart-servers.adoc.yaml -> Instance variables file.
+#   src/docs/sops/sop-template.j2.d/purge-logs.adoc.yaml      -> Instance variables file.
 #
 # Will result in the following output directory structure:
 #
@@ -181,7 +181,7 @@ The values from the above context can be referenced using standard Jinja2 refere
 
     {{ sys.project_version }}
 
-    {{ file.last_commit_timestamp | datetimeformat("%Y-%m-%d at %H:%M %p %Z", "Australia/Sydney") }}
+    {{ output_file.last_commit.timestamp | datetimeformat("%Y-%m-%d at %H:%M %Z", "Australia/Sydney") }}
 
 ## Tasks
 
