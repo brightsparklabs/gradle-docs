@@ -62,8 +62,8 @@ public class DocsPlugin implements Plugin<Project> {
         }
         // Use `afterEvaluate` in case another task add the `clean` task.
         project.afterEvaluate {
-            if (! project.tasks.findByName('cleand')) {
-                project.task('cleadn') {
+            if (! project.tasks.findByName('clean')) {
+                project.task('clean') {
                     group = "brightSPARK Labs - Docs"
                     description = "Cleans the documentation."
                 }
