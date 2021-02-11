@@ -161,7 +161,7 @@ public class DocsPlugin implements Plugin<Project> {
                         Map<String, Object> fileVariablesFileLastCommit = getLastCommit(fileVariablesSrcFile, now)
                         templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
                         if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp)) {
-                            templateFileContext.last_commit = fileVariablesFileLastCommit
+                            outputFileContext.last_commit = fileVariablesFileLastCommit
                         }
                         fileVariables.delete()
                     }
@@ -250,6 +250,18 @@ public class DocsPlugin implements Plugin<Project> {
      */
     private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
         final Map<String, Object> result = [:]
+
+        // If file is dirty, then use current time.
+        def checkFileDirtyCommand = 'git diff --shortstat --'.tokenize()
+        checkFileDirtyCommand << relativeFilePath
+        String checkFileDirty = checkFileDirtyCommand.execute().text.trim()
+        if (! checkFileDirty.isEmpty()) {
+            return [
+                hash: 'unspecified',
+                timestamp: defaultTimestamp,
+            ]
+        }
+
         // NOTE: Use array execution instead of string execution in case parameters contain spaces
         def lastCommitHashCommand = 'git log -n 1 --pretty=format:%h --'.tokenize()
         lastCommitHashCommand << relativeFilePath
