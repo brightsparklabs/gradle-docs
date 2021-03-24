@@ -43,6 +43,14 @@ By default:
 
 Running `./gradlew build` will generate PDF and HTML of the documentation.
 
+### Dependencies
+
+To run the plugin, you need to have `graphviz` installed on your machine.
+
+```
+sudo apt install graphviz
+```
+
 ### Jinja2 Context Map
 
 The context provided to the Jinja2 rendering engine has the following format:
