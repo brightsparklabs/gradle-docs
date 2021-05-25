@@ -8,6 +8,7 @@
 package com.brightsparklabs.gradle.docs
 
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 import org.gradle.api.Project
 import org.gradle.api.Plugin
@@ -91,6 +92,7 @@ public class DocsPlugin implements Plugin<Project> {
                     project_description: project.description,
                     project_version: project.version,
                     build_timestamp: now,
+                    build_timestamp_formatted: getFormattedTimestamps(now),
                     repo_last_commit: getLastCommit('.', now),
                 ]
 
@@ -208,7 +210,11 @@ public class DocsPlugin implements Plugin<Project> {
                             }
 
                             logger.debug("Using context: ${context}")
-                            instanceOutputFile.text = jinjava.render(templateFile.text, context)
+                            try {
+                                instanceOutputFile.text = jinjava.render(templateFile.text, context)
+                            } catch(Exception ex) {
+                                throw new Exception("Could not process [${templateFile}] - ${ex.message}")
+                            }
 
                             // Restore cached last commit so next instance can cleanly compare.
                             templateFileContext.last_commit = cachedLastCommit
@@ -253,31 +259,58 @@ public class DocsPlugin implements Plugin<Project> {
      *         </pre>
      */
     private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
-        final Map<String, Object> result = [:]
+        final Map<String, Object> result = [
+            hash: 'unspecified',
+            timestamp: defaultTimestamp,
+            timestamp_formatted: getFormattedTimestamps(defaultTimestamp),
+        ]
 
         // If file is dirty, then use current time.
         def checkFileDirtyCommand = 'git diff --shortstat --'.tokenize()
         checkFileDirtyCommand << relativeFilePath
         String checkFileDirty = checkFileDirtyCommand.execute().text.trim()
         if (! checkFileDirty.isEmpty()) {
-            return [
-                hash: 'unspecified',
-                timestamp: defaultTimestamp,
-            ]
+            return result
         }
 
         // NOTE: Use array execution instead of string execution in case parameters contain spaces
         def lastCommitHashCommand = 'git log -n 1 --pretty=format:%h --'.tokenize()
         lastCommitHashCommand << relativeFilePath
         String lastCommitHash = lastCommitHashCommand.execute().text.trim()
-        result.put("hash", lastCommitHash.isEmpty() ? 'unspecified' : lastCommitHash)
+        if (!lastCommitHash.isEmpty()) {
+            result.put("hash", lastCommitHash)
+        }
 
         // NOTE: Use array execution instead of string execution in case parameters contain spaces
         def lastCommitTimestampCommand = 'git log -n 1 --pretty=format:%aI --'.tokenize()
         lastCommitTimestampCommand << relativeFilePath
         String lastCommitTimestamp = lastCommitTimestampCommand.execute().text.trim()
-        result.put("timestamp", lastCommitTimestamp.isEmpty() ? defaultTimestamp : ZonedDateTime.parse(lastCommitTimestamp))
+        if (!lastCommitTimestamp.isEmpty()) {
+            def zonedTimestamp = ZonedDateTime.parse(lastCommitTimestamp)
+            result.put("timestamp", zonedTimestamp)
+            result.put("timestamp_formatted", getFormattedTimestamps(zonedTimestamp))
+        }
         return result
+    }
+
+    /**
+     * Generates various formatted strings to represent the supplied timestamp.
+     *
+     * @param timestamp Timestamp to generate formatted strings for.
+     *
+     * Map of the various formatted strings.
+     */
+    private Map<String, String> getFormattedTimestamps(ZonedDateTime timestamp) {
+        def isoUtcString = timestamp.format(DateTimeFormatter.ISO_INSTANT)
+        def isoOffsetString = timestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        return [
+            iso_utc: isoUtcString,
+            iso_utc_space: isoUtcString.replace('T', ' '),
+            iso_utc_safe: isoUtcString.replace(':', ''),
+            iso_offset: isoOffsetString,
+            iso_offset_space: isoOffsetString.replace('T', ' '),
+            iso_offset_safe: isoOffsetString.replace(':', ''),
+        ]
     }
 
     /**
