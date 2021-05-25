@@ -165,7 +165,7 @@ public class DocsPlugin implements Plugin<Project> {
                         }
                         fileVariables.delete()
                     }
-                    logger.info("Using file context: ${templateFileContext}")
+                    logger.info("Using file context `template_file`: ${templateFileContext}")
 
                     // Process instances if present.
                     File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
@@ -199,7 +199,7 @@ public class DocsPlugin implements Plugin<Project> {
                             String instanceFileVariablesYamlText = instanceFile.text
                             instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
 
-                            logger.info("Using instance context: ${instanceContext}")
+                            logger.info("Using instance context `instance_file`: ${instanceContext}")
 
                             // Cache current last commit so next instance can cleanly compare.
                             def cachedLastCommit = outputFileContext.last_commit
@@ -222,7 +222,11 @@ public class DocsPlugin implements Plugin<Project> {
                     else {
                         // No instances, just process in place.
                         logger.debug("Using context: ${context}")
-                        templateOutputFile.text = jinjava.render(templateFile.text, context)
+                        try {
+                          templateOutputFile.text = jinjava.render(templateFile.text, context)
+                        } catch(Exception ex) {
+                          throw new Exception("Could not process [${templateFile}] - ${ex.message}")
+                        }
                     }
 
                     // clean out context and template
