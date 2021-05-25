@@ -223,9 +223,9 @@ public class DocsPlugin implements Plugin<Project> {
                         // No instances, just process in place.
                         logger.debug("Using context: ${context}")
                         try {
-                          templateOutputFile.text = jinjava.render(templateFile.text, context)
+                            templateOutputFile.text = jinjava.render(templateFile.text, context)
                         } catch(Exception ex) {
-                          throw new Exception("Could not process [${templateFile}] - ${ex.message}")
+                            throw new Exception("Could not process [${templateFile}] - ${ex.message}")
                         }
                     }
 
