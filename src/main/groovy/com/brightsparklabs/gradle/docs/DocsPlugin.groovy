@@ -15,6 +15,7 @@ import org.gradle.api.Plugin
 
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
+import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
 /**
@@ -96,8 +97,13 @@ public class DocsPlugin implements Plugin<Project> {
                     repo_last_commit: getLastCommit('.', now),
                 ]
 
+                // Setup Yaml parser.
+                DumperOptions yamlOptions = new DumperOptions();
+                yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+                yamlOptions.setPrettyFlow(true);
+                Yaml yaml = new Yaml(yamlOptions)
+
                 // Build Jinja2 context.
-                Yaml yaml = new Yaml()
                 Map<String, Object> context = [
                     sys: sysContext,
                 ]
@@ -167,7 +173,7 @@ public class DocsPlugin implements Plugin<Project> {
                         }
                         fileVariables.delete()
                     }
-                    logger.info("Using file context `template_file`: ${templateFileContext}")
+                    logger.info("Using `template_file` context:\n${yaml.dump(templateFileContext)}")
 
                     // Process instances if present.
                     File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
@@ -201,7 +207,7 @@ public class DocsPlugin implements Plugin<Project> {
                             String instanceFileVariablesYamlText = instanceFile.text
                             instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
 
-                            logger.info("Using instance context `instance_file`: ${instanceContext}")
+                            logger.info("Using `instance_file` context :\n${yaml.dump(instanceContext)}")
 
                             // Cache current last commit so next instance can cleanly compare.
                             def cachedLastCommit = outputFileContext.last_commit
@@ -209,7 +215,7 @@ public class DocsPlugin implements Plugin<Project> {
                                 outputFileContext.last_commit = instanceFileLastCommit
                             }
 
-                            logger.debug("Using context: ${context}")
+                            logger.debug("Using context:\n${yaml.dump(context)}")
                             try {
                                 instanceOutputFile.text = jinjava.render(templateFile.text, context)
                             } catch(Exception ex) {
@@ -227,7 +233,7 @@ public class DocsPlugin implements Plugin<Project> {
                     }
                     else {
                         // No instances, just process in place.
-                        logger.debug("Using context: ${context}")
+                        logger.debug("Using context:\n${yaml.dump(context)}")
                         try {
                             templateOutputFile.text = jinjava.render(templateFile.text, context)
                         } catch(Exception ex) {
