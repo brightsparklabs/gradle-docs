@@ -22,10 +22,31 @@ import org.yaml.snakeyaml.Yaml
  * The brightSPARK Labs Docs Plugin.
  */
 public class DocsPlugin implements Plugin<Project> {
+    // -------------------------------------------------------------------------
+    // INSTANCE VARIABLES
+    // -------------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-    // CONSTANTS
-    // -------------------------------------------------------------------------
+    // NOTE: Using closure because DumperOptions has no builder and we need to
+    //       build instance variables in one statement.
+    /** Yaml parser. */
+    Yaml yaml = { _ ->
+        def yamlOptions = new DumperOptions();
+        yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+        yamlOptions.setPrettyFlow(true);
+        return new Yaml(yamlOptions)
+    }()
+
+    /** Jinja2 processor. */
+    Jinjava jinjava = { _ ->
+        JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
+                // Fail if templates reference non-existent variables
+                .withFailOnUnknownTokens(true)
+                .build();
+        return new Jinjava(jinjavaConfig)
+    }()
+
+    /** Output asciidoc files mapped to the context which created them. */
+    Map<File, Map<String, Object>> outputFileToContextMap = [:]
 
     // -------------------------------------------------------------------------
     // IMPLEMENTATION: Plugin<Project>
@@ -97,12 +118,6 @@ public class DocsPlugin implements Plugin<Project> {
                     repo_last_commit: getLastCommit('.', now),
                 ]
 
-                // Setup Yaml parser.
-                DumperOptions yamlOptions = new DumperOptions();
-                yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-                yamlOptions.setPrettyFlow(true);
-                Yaml yaml = new Yaml(yamlOptions)
-
                 // Build Jinja2 context.
                 Map<String, Object> context = [
                     sys: sysContext,
@@ -121,11 +136,6 @@ public class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Process templates.
-                JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
-                        // Fail if templates reference non-existent variables
-                        .withFailOnUnknownTokens(true)
-                        .build();
-                Jinjava jinjava = new Jinjava(jinjavaConfig)
                 jinjaOutputDir.traverse(type: groovy.io.FileType.FILES) { templateFile ->
                     // Ignore file if it is not a Jinja2 template
                     if (! templateFile.name.endsWith(".j2")) {
@@ -216,11 +226,7 @@ public class DocsPlugin implements Plugin<Project> {
                             }
 
                             logger.debug("Using context:\n${yaml.dump(context)}")
-                            try {
-                                instanceOutputFile.text = jinjava.render(templateFile.text, context)
-                            } catch(Exception ex) {
-                                throw new Exception("Could not process [${templateFile}] - ${ex.message}")
-                            }
+                            writeTemplateToFile(templateFile, context, instanceOutputFile)
 
                             // Restore cached last commit so next instance can cleanly compare.
                             templateFileContext.last_commit = cachedLastCommit
@@ -234,11 +240,7 @@ public class DocsPlugin implements Plugin<Project> {
                     else {
                         // No instances, just process in place.
                         logger.debug("Using context:\n${yaml.dump(context)}")
-                        try {
-                            templateOutputFile.text = jinjava.render(templateFile.text, context)
-                        } catch(Exception ex) {
-                            throw new Exception("Could not process [${templateFile}] - ${ex.message}")
-                        }
+                        writeTemplateToFile(templateFile, context, templateOutputFile)
                     }
 
                     // clean out context and template
@@ -249,6 +251,27 @@ public class DocsPlugin implements Plugin<Project> {
             }
         }
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
+    }
+
+    /**
+     * Renders the supplied template against the supplied context and writes
+     * it to an output file.
+     *
+     * @param templateFile Template to render.
+     * @param context Context to use to fill the template.
+     * @param outputFile File to write the result to.
+     */
+    private void writeTemplateToFile(File templateFile, Map<String, Object> context, File outputFile) {
+        try {
+            // Create an snapshot of the context since it is mutable.
+            def snapshot = context.getClass().newInstance(context)
+            outputFileToContextMap[outputFile] = snapshot
+
+            // Render template to file.
+            outputFile.text = jinjava.render(templateFile.text, context)
+        } catch(Exception ex) {
+            throw new Exception("Could not process [${templateFile}] - ${ex.message}")
+        }
     }
 
     /**
@@ -330,31 +353,43 @@ public class DocsPlugin implements Plugin<Project> {
         project.plugins.apply 'org.asciidoctor.jvm.convert'
         project.plugins.apply 'org.asciidoctor.jvm.pdf'
 
-        // Use `afterEvaluate` in case another task add the `build` task.
-        project.afterEvaluate {
-            if (! project.tasks.findByName('build')) {
-                project.task('build') {
-                    group = "brightSPARK Labs - Docs"
-                    description = "Builds the documentation."
-                }
-            }
-            project.build.dependsOn project.asciidoctor
-            project.asciidoctor.dependsOn project.jinjaPreProcess
-        }
-
         // creating aliases nested under our BSL group for clarity
         project.task('bslAsciidoctor') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctor` task."
         }
-        project.bslAsciidoctor.dependsOn project.asciidoctor
 
         project.task('bslAsciidoctorPdf') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctorPdf` task."
         }
-        project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
 
+        project.task('bslAsciidoctorPdfVersioned') {
+            group = "brightSPARK Labs - Docs Versioned"
+            description = "Creates PDF files with version string in filename"
+
+            doLast {
+                final def pdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdf")
+                final def versionedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfVersioned")
+                project.copy {
+                    from pdfOutputDir
+                    into versionedPdfOutputDir
+                }
+
+                outputFileToContextMap.each { adocFile, context ->
+                    final String hash = context.output_file.last_commit.hash
+                    final String timestamp = context.output_file.last_commit.timestamp_formatted.iso_utc_safe
+                    final String extantFilename = adocFile.getAbsolutePath().replace("jinjaProcessed", "docs/asciidoc/pdfVersioned").replace(".adoc", ".pdf")
+                    final String renamedFilename = extantFilename.replace(".pdf", " ${timestamp} ${hash}.pdf")
+
+                    final File extantFile = new File(extantFilename)
+                    final File renamedFile = new File(renamedFilename)
+                    extantFile.renameTo(renamedFile)
+                }
+            }
+        }
+
+        // Use `afterEvaluate` in case another task add the `build` task.
         project.afterEvaluate {
             project.asciidoctor {
                 sourceDir jinjaOutputDir
@@ -386,6 +421,21 @@ public class DocsPlugin implements Plugin<Project> {
                             'toc'                : config.tocPosition
                 }
             }
+
+            if (! project.tasks.findByName('build')) {
+                project.task('build') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Builds the documentation."
+                }
+            }
+
+            project.asciidoctor.dependsOn project.jinjaPreProcess
+            project.asciidoctorPdf.dependsOn project.jinjaPreProcess
+            project.bslAsciidoctor.dependsOn project.asciidoctor
+            project.asciidoctorPdf.dependsOn project.asciidoctor
+            project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
+            project.bslAsciidoctorPdfVersioned.dependsOn project.bslAsciidoctorPdf
+            project.build.dependsOn project.bslAsciidoctorPdfVersioned
         }
     }
 }
