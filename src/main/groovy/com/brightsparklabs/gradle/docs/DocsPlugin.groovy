@@ -8,22 +8,45 @@
 package com.brightsparklabs.gradle.docs
 
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 import org.gradle.api.Project
 import org.gradle.api.Plugin
 
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
+import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
 /**
  * The brightSPARK Labs Docs Plugin.
  */
 public class DocsPlugin implements Plugin<Project> {
+    // -------------------------------------------------------------------------
+    // INSTANCE VARIABLES
+    // -------------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-    // CONSTANTS
-    // -------------------------------------------------------------------------
+    // NOTE: Using closure because DumperOptions has no builder and we need to
+    //       build instance variables in one statement.
+    /** Yaml parser. */
+    Yaml yaml = { _ ->
+        def yamlOptions = new DumperOptions();
+        yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+        yamlOptions.setPrettyFlow(true);
+        return new Yaml(yamlOptions)
+    }()
+
+    /** Jinja2 processor. */
+    Jinjava jinjava = { _ ->
+        JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
+                // Fail if templates reference non-existent variables
+                .withFailOnUnknownTokens(true)
+                .build();
+        return new Jinjava(jinjavaConfig)
+    }()
+
+    /** Output asciidoc files mapped to the context which created them. */
+    Map<File, Map<String, Object>> outputFileToContextMap = [:]
 
     // -------------------------------------------------------------------------
     // IMPLEMENTATION: Plugin<Project>
@@ -91,11 +114,11 @@ public class DocsPlugin implements Plugin<Project> {
                     project_description: project.description,
                     project_version: project.version,
                     build_timestamp: now,
+                    build_timestamp_formatted: getFormattedTimestamps(now),
                     repo_last_commit: getLastCommit('.', now),
                 ]
 
                 // Build Jinja2 context.
-                Yaml yaml = new Yaml()
                 Map<String, Object> context = [
                     sys: sysContext,
                 ]
@@ -113,11 +136,6 @@ public class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Process templates.
-                JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
-                        // Fail if templates reference non-existent variables
-                        .withFailOnUnknownTokens(true)
-                        .build();
-                Jinjava jinjava = new Jinjava(jinjavaConfig)
                 jinjaOutputDir.traverse(type: groovy.io.FileType.FILES) { templateFile ->
                     // Ignore file if it is not a Jinja2 template
                     if (! templateFile.name.endsWith(".j2")) {
@@ -165,7 +183,7 @@ public class DocsPlugin implements Plugin<Project> {
                         }
                         fileVariables.delete()
                     }
-                    logger.info("Using file context: ${templateFileContext}")
+                    logger.info("Using `template_file` context:\n${yaml.dump(templateFileContext)}")
 
                     // Process instances if present.
                     File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
@@ -199,7 +217,7 @@ public class DocsPlugin implements Plugin<Project> {
                             String instanceFileVariablesYamlText = instanceFile.text
                             instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
 
-                            logger.info("Using instance context: ${instanceContext}")
+                            logger.info("Using `instance_file` context :\n${yaml.dump(instanceContext)}")
 
                             // Cache current last commit so next instance can cleanly compare.
                             def cachedLastCommit = outputFileContext.last_commit
@@ -207,8 +225,8 @@ public class DocsPlugin implements Plugin<Project> {
                                 outputFileContext.last_commit = instanceFileLastCommit
                             }
 
-                            logger.debug("Using context: ${context}")
-                            instanceOutputFile.text = jinjava.render(templateFile.text, context)
+                            logger.debug("Using context:\n${yaml.dump(context)}")
+                            writeTemplateToFile(templateFile, context, instanceOutputFile)
 
                             // Restore cached last commit so next instance can cleanly compare.
                             templateFileContext.last_commit = cachedLastCommit
@@ -221,8 +239,8 @@ public class DocsPlugin implements Plugin<Project> {
                     }
                     else {
                         // No instances, just process in place.
-                        logger.debug("Using context: ${context}")
-                        templateOutputFile.text = jinjava.render(templateFile.text, context)
+                        logger.debug("Using context:\n${yaml.dump(context)}")
+                        writeTemplateToFile(templateFile, context, templateOutputFile)
                     }
 
                     // clean out context and template
@@ -233,6 +251,27 @@ public class DocsPlugin implements Plugin<Project> {
             }
         }
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
+    }
+
+    /**
+     * Renders the supplied template against the supplied context and writes
+     * it to an output file.
+     *
+     * @param templateFile Template to render.
+     * @param context Context to use to fill the template.
+     * @param outputFile File to write the result to.
+     */
+    private void writeTemplateToFile(File templateFile, Map<String, Object> context, File outputFile) {
+        try {
+            // Create an snapshot of the context since it is mutable.
+            def snapshot = context.getClass().newInstance(context)
+            outputFileToContextMap[outputFile] = snapshot
+
+            // Render template to file.
+            outputFile.text = jinjava.render(templateFile.text, context)
+        } catch(Exception ex) {
+            throw new Exception("Could not process [${templateFile}] - ${ex.message}")
+        }
     }
 
     /**
@@ -249,31 +288,58 @@ public class DocsPlugin implements Plugin<Project> {
      *         </pre>
      */
     private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
-        final Map<String, Object> result = [:]
+        final Map<String, Object> result = [
+            hash: 'unspecified',
+            timestamp: defaultTimestamp,
+            timestamp_formatted: getFormattedTimestamps(defaultTimestamp),
+        ]
 
         // If file is dirty, then use current time.
         def checkFileDirtyCommand = 'git diff --shortstat --'.tokenize()
         checkFileDirtyCommand << relativeFilePath
         String checkFileDirty = checkFileDirtyCommand.execute().text.trim()
         if (! checkFileDirty.isEmpty()) {
-            return [
-                hash: 'unspecified',
-                timestamp: defaultTimestamp,
-            ]
+            return result
         }
 
         // NOTE: Use array execution instead of string execution in case parameters contain spaces
         def lastCommitHashCommand = 'git log -n 1 --pretty=format:%h --'.tokenize()
         lastCommitHashCommand << relativeFilePath
         String lastCommitHash = lastCommitHashCommand.execute().text.trim()
-        result.put("hash", lastCommitHash.isEmpty() ? 'unspecified' : lastCommitHash)
+        if (!lastCommitHash.isEmpty()) {
+            result.put("hash", lastCommitHash)
+        }
 
         // NOTE: Use array execution instead of string execution in case parameters contain spaces
         def lastCommitTimestampCommand = 'git log -n 1 --pretty=format:%aI --'.tokenize()
         lastCommitTimestampCommand << relativeFilePath
         String lastCommitTimestamp = lastCommitTimestampCommand.execute().text.trim()
-        result.put("timestamp", lastCommitTimestamp.isEmpty() ? defaultTimestamp : ZonedDateTime.parse(lastCommitTimestamp))
+        if (!lastCommitTimestamp.isEmpty()) {
+            def zonedTimestamp = ZonedDateTime.parse(lastCommitTimestamp)
+            result.put("timestamp", zonedTimestamp)
+            result.put("timestamp_formatted", getFormattedTimestamps(zonedTimestamp))
+        }
         return result
+    }
+
+    /**
+     * Generates various formatted strings to represent the supplied timestamp.
+     *
+     * @param timestamp Timestamp to generate formatted strings for.
+     *
+     * Map of the various formatted strings.
+     */
+    private Map<String, String> getFormattedTimestamps(ZonedDateTime timestamp) {
+        def isoUtcString = timestamp.format(DateTimeFormatter.ISO_INSTANT)
+        def isoOffsetString = timestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+        return [
+            iso_utc: isoUtcString,
+            iso_utc_space: isoUtcString.replace('T', ' '),
+            iso_utc_safe: isoUtcString.replace(':', ''),
+            iso_offset: isoOffsetString,
+            iso_offset_space: isoOffsetString.replace('T', ' '),
+            iso_offset_safe: isoOffsetString.replace(':', ''),
+        ]
     }
 
     /**
@@ -287,31 +353,43 @@ public class DocsPlugin implements Plugin<Project> {
         project.plugins.apply 'org.asciidoctor.jvm.convert'
         project.plugins.apply 'org.asciidoctor.jvm.pdf'
 
-        // Use `afterEvaluate` in case another task add the `build` task.
-        project.afterEvaluate {
-            if (! project.tasks.findByName('build')) {
-                project.task('build') {
-                    group = "brightSPARK Labs - Docs"
-                    description = "Builds the documentation."
-                }
-            }
-            project.build.dependsOn project.asciidoctor
-            project.asciidoctor.dependsOn project.jinjaPreProcess
-        }
-
         // creating aliases nested under our BSL group for clarity
         project.task('bslAsciidoctor') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctor` task."
         }
-        project.bslAsciidoctor.dependsOn project.asciidoctor
 
         project.task('bslAsciidoctorPdf') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctorPdf` task."
         }
-        project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
 
+        project.task('bslAsciidoctorPdfVersioned') {
+            group = "brightSPARK Labs - Docs Versioned"
+            description = "Creates PDF files with version string in filename"
+
+            doLast {
+                final def pdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdf")
+                final def versionedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfVersioned")
+                project.copy {
+                    from pdfOutputDir
+                    into versionedPdfOutputDir
+                }
+
+                outputFileToContextMap.each { adocFile, context ->
+                    final String hash = context.output_file.last_commit.hash
+                    final String timestamp = context.output_file.last_commit.timestamp_formatted.iso_utc_safe
+                    final String extantFilename = adocFile.getAbsolutePath().replace("jinjaProcessed", "docs/asciidoc/pdfVersioned").replace(".adoc", ".pdf")
+                    final String renamedFilename = extantFilename.replace(".pdf", " ${timestamp} ${hash}.pdf")
+
+                    final File extantFile = new File(extantFilename)
+                    final File renamedFile = new File(renamedFilename)
+                    extantFile.renameTo(renamedFile)
+                }
+            }
+        }
+
+        // Use `afterEvaluate` in case another task add the `build` task.
         project.afterEvaluate {
             project.asciidoctor {
                 sourceDir jinjaOutputDir
@@ -343,6 +421,21 @@ public class DocsPlugin implements Plugin<Project> {
                             'toc'                : config.tocPosition
                 }
             }
+
+            if (! project.tasks.findByName('build')) {
+                project.task('build') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Builds the documentation."
+                }
+            }
+
+            project.asciidoctor.dependsOn project.jinjaPreProcess
+            project.asciidoctorPdf.dependsOn project.jinjaPreProcess
+            project.bslAsciidoctor.dependsOn project.asciidoctor
+            project.asciidoctorPdf.dependsOn project.asciidoctor
+            project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
+            project.bslAsciidoctorPdfVersioned.dependsOn project.bslAsciidoctorPdf
+            project.build.dependsOn project.bslAsciidoctorPdfVersioned
         }
     }
 }

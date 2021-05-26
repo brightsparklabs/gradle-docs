@@ -59,16 +59,56 @@ sys:
   # The `project.version` set in Gradle.
   project_version: <version>
 
-  # The time the build was run.
+  # The time the build was run as ZonedDateTime.
   build_timestamp: <timestamp>
+
+  # The time the build was run in different string formats.
+  build_timestamp_formatted:
+    # Timestamp in UTC as an ISO8601 string.
+    iso_utc: <timestamp>
+
+    # Timestamp in UTC as an ISO8601 string with `T` replaced by a space.
+    iso_utc_space: <timestamp>
+
+    # Timestamp in UTC as an ISO8601 string with `:` removed (safe for Windows file systems).
+    iso_utc_safe: <timestamp>
+
+    # Timestamp with offset as an ISO8601 string.
+    iso_offset: <timestamp>
+
+    # Timestamp with offset as an ISO8601 string with `T` replaced by a space.
+    iso_offset_space: <timestamp>
+
+    # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
+    iso_offset_safe: <timestamp>
 
   # Details of the last git commit on the repo.
   repo_last_commit:
     # The git commit hash (defaults to `unspecified` if project not under git control).
     hash: <hash>
 
-    # The git commit timestamp (defaults to build timestamp if project not under git control).
+    # The git commit timestamp as ZonedDateTime (defaults to build timestamp if project not under git control).
     timestamp: <timestamp>
+
+    # The git commit timestamp in different string formats.
+    timestamp_formatted:
+      # Timestamp in UTC as an ISO8601 string.
+      iso_utc: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `T` replaced by a space.
+      iso_utc_space: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_utc_safe: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string.
+      iso_offset: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `T` replaced by a space.
+      iso_offset_space: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_offset_safe: <timestamp>
 
 # User defined variables from global variables YAML file (default: `src/variables.yaml`).
 vars:
@@ -79,8 +119,28 @@ vars_file_last_commit:
   # The git commit hash (defaults to `unspecified` if file not under git control).
   hash: <hash>
 
-  # The git commit timestamp (defaults to build timestamp if file not under git control).
+  # The git commit timestamp as ZonedDateTime (defaults to build timestamp if file not under git control).
   timestamp: <timestamp>
+
+  # The git commit timestamp in different string formats.
+  timestamp_formatted:
+    # Timestamp in UTC as an ISO8601 string.
+    iso_utc: <timestamp>
+
+    # Timestamp in UTC as an ISO8601 string with `T` replaced by a space.
+    iso_utc_space: <timestamp>
+
+    # Timestamp in UTC as an ISO8601 string with `:` removed (safe for Windows file systems).
+    iso_utc_safe: <timestamp>
+
+    # Timestamp with offset as an ISO8601 string.
+    iso_offset: <timestamp>
+
+    # Timestamp with offset as an ISO8601 string with `T` replaced by a space.
+    iso_offset_space: <timestamp>
+
+    # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
+    iso_offset_safe: <timestamp>
 
 # (Dynamic) Variables pertaining to the CURRENT template being rendered.
 template_file:
@@ -95,8 +155,28 @@ template_file:
     # The git commit hash (defaults to `unspecified` if file not under git control).
     hash: <hash>
 
-    # The git commit timestamp (defaults to build timestamp if file not under git control).
+    # The git commit timestamp as ZonedDateTime (defaults to build timestamp if file not under git control).
     timestamp: <timestamp>
+
+    # The git commit timestamp in different string formats.
+    timestamp_formatted:
+      # Timestamp in UTC as an ISO8601 string.
+      iso_utc: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `T` replaced by a space.
+      iso_utc_space: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_utc_safe: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string.
+      iso_offset: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `T` replaced by a space.
+      iso_offset_space: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_offset_safe: <timestamp>
 
   # User defined variables from template specific variables YAML file (if present).
   #
@@ -115,8 +195,28 @@ template_file:
     # The git commit hash (defaults to `unspecified` if file not under git control).
     hash: <hash>
 
-    # The git commit timestamp (defaults to build timestamp if file not under git control).
+    # The git commit timestamp as ZonedDateTime (defaults to build timestamp if file not under git control).
     timestamp: <timestamp>
+
+    # The git commit timestamp in different string formats.
+    timestamp_formatted:
+      # Timestamp in UTC as an ISO8601 string.
+      iso_utc: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `T` replaced by a space.
+      iso_utc_space: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_utc_safe: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string.
+      iso_offset: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `T` replaced by a space.
+      iso_offset_space: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_offset_safe: <timestamp>
 
 # (Dynamic) User defined variables from the CURRENT instance variable file being processed (if
 # present).
@@ -148,8 +248,28 @@ instance_file:
     # The git commit hash (defaults to `unspecified` if file not under git control).
     hash: <hash>
 
-    # The git commit timestamp (defaults to build timestamp if file not under git control).
+    # The git commit timestamp as ZonedDateTime (defaults to build timestamp if file not under git control).
     timestamp: <timestamp>
+
+    # The git commit timestamp in different string formats.
+    timestamp_formatted:
+      # Timestamp in UTC as an ISO8601 string.
+      iso_utc: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `T` replaced by a space.
+      iso_utc_space: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_utc_safe: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string.
+      iso_offset: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `T` replaced by a space.
+      iso_offset_space: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_offset_safe: <timestamp>
 
   # Variables from the instance variables file.
   vars:
@@ -173,8 +293,28 @@ output_file:
     # The git commit hash.
     hash: <hash>
 
-    # The git commit timestamp.
+    # The git commit timestamp as ZonedDateTime.
     timestamp: <timestamp>
+
+    # The git commit timestamp in different string formats.
+    timestamp_formatted:
+      # Timestamp in UTC as an ISO8601 string.
+      iso_utc: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `T` replaced by a space.
+      iso_utc_space: <timestamp>
+
+      # Timestamp in UTC as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_utc_safe: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string.
+      iso_offset: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `T` replaced by a space.
+      iso_offset_space: <timestamp>
+
+      # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
+      iso_offset_safe: <timestamp>
 ```
 
 The values from the above context can be referenced using standard Jinja2 references. E.g.
@@ -182,6 +322,8 @@ The values from the above context can be referenced using standard Jinja2 refere
     {{ sys.project_version }}
 
     {{ output_file.last_commit.timestamp | datetimeformat("%Y-%m-%d at %H:%M %Z", "Australia/Sydney") }}
+
+    {{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
 
 ## Tasks
 
