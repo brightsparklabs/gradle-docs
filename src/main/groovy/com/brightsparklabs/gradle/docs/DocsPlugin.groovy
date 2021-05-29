@@ -80,7 +80,10 @@ public class DocsPlugin implements Plugin<Project> {
             description = "Cleans the Jinja2 processed documents out of the build directory"
 
             doLast {
-                jinjaOutputDir.delete()
+                project.delete jinjaOutputDir
+                // Delete asciidoctor generated documents else renamed/deleted docs  may remain.
+                def asciidoctorOutputDir = project.file("build/docs")
+                project.delete asciidoctorOutputDir
             }
         }
         // Use `afterEvaluate` in case another task add the `clean` task.

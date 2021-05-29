@@ -376,6 +376,29 @@ docsPluginConfig {
 }
 ```
 
+### Asciidoctorj Diagram
+
+The [`asciidoctorj-diagram`](https://github.com/asciidoctor/asciidoctorj-diagram) can be enabled
+as [per standard
+practice](https://asciidoctor.github.io/asciidoctor-gradle-plugin/development-3.x/user-guide/#diagram)
+in `build.gradle`:
+
+```groovy
+// Support asciidoctor-diagram image generation.
+asciidoctorj {
+    modules {
+        diagram.use()
+    }
+}
+```
+
+In order to make use of the various diagramming formats, the backing tool needs to be installed on
+the system. E.g.
+
+- `graphviz`/`plantuml` requires [graphviz](https://graphviz.org/) `dot` installed.
+- `vega` requires [Vega](https://vega.github.io/vega/) installed.
+- etc.
+
 ## Testing during development
 
 To test plugin changes during development:
