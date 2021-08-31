@@ -414,14 +414,18 @@ public class DocsPlugin implements Plugin<Project> {
                      * 'numbered'           -> numbers all headings
                      * 'source-highlighter' -> add syntax highlighting to source blocks
                      * 'toc': 'left'        -> places TOC on left hand site in HTML pages
+                     *
+                     * Appending `@` to lower precedence so that defaults can
+                     * be overridden in Asciidoc documents. See:
+                     * - https://docs.asciidoctor.org/asciidoc/latest/attributes/assignment-precedence/
                      */
                     attributes \
-                        'chapter-label'      : '',
-                            'icons'              : 'font',
-                            'imagesdir'          : project.file(config.imagesDir),
-                            'numbered'           : '',
-                            'source-highlighter' : 'coderay',
-                            'toc'                : config.tocPosition
+                        'chapter-label@'      : '',
+                            'icons@'              : 'font',
+                            'imagesdir@'          : project.file(config.imagesDir),
+                            'numbered@'           : '',
+                            'source-highlighter@' : 'coderay',
+                            'toc@'                : config.tocPosition
                 }
             }
 
