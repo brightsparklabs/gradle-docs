@@ -18,6 +18,8 @@ import com.hubspot.jinjava.JinjavaConfig
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
+//import com.github.jrubygradle.JRubyExec
+
 /**
  * The brightSPARK Labs Docs Plugin.
  */
@@ -362,14 +364,24 @@ public class DocsPlugin implements Plugin<Project> {
             group = "brightSPARK Labs - Docs"
             description = "Build a website with Jekyll-Asciidoc."
 
-            //Copy jinja output files to the working directory of Jekyll
-            final def jinjaOutputDirectory = project.file(jinjaOutputDir)
-            final def jekyllOutputDirectory = project.file(jekyllOutputDir)
-            project.copy {
-                from jinjaOutputDirectory
-                into jekyllOutputDirectory
-            }
+            doLast {
+                //Copy jinja output files to the working directory of Jekyll
+                final def jinjaOutputDirectory = project.file(jinjaOutputDir)
+                final def jekyllOutputDirectory = project.file(jekyllOutputDir)
+                project.copy {
+                    from jinjaOutputDirectory
+                    into jekyllOutputDirectory
+                }
 
+                //Copies the config and gemfile into the build directory for Jekyll
+                final def jekyllConfigDir = project.file('src/website/')
+                project.copy {
+                    from jekyllConfigDir
+                    into jekyllOutputDirectory
+                }
+
+
+            }
         }
 
         project.afterEvaluate {
