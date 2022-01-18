@@ -7,12 +7,6 @@
 
 package com.brightsparklabs.gradle.docs
 
-import groovy.transform.Internal
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.OutputDirectories
-import org.gradle.api.tasks.OutputDirectory
-import org.gradle.plugins.ide.eclipse.model.Output
-
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -25,6 +19,7 @@ import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
 import com.github.jrubygradle.JRubyExec
+import com.github.jrubygradle.JRubyPrepare
 
 /**
  * The brightSPARK Labs Docs Plugin.
@@ -370,7 +365,8 @@ public class DocsPlugin implements Plugin<Project> {
             description = "Build a website with Jekyll-Asciidoc."
 
             script "jekyll"
-            scriptArgs "build", jekyllOutputDir
+            scriptArgs "new"
+            workingDir jekyllOutputDir
 
             doLast {
                 // Copy jinja output files to the working directory of Jekyll.
