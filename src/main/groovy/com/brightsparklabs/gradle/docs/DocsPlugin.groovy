@@ -351,7 +351,7 @@ public class DocsPlugin implements Plugin<Project> {
     }
 
     /**
-     * Adds and configures Jekyll Ruby Script.
+     * Adds and configures Jekyll Ruby Script. Should be updated once function is completed
      *
      * @param project Gradle project to add the task to.
      * @param jekyllOutputDir Directory to output the compiled website to
@@ -365,8 +365,7 @@ public class DocsPlugin implements Plugin<Project> {
             description = "Build a website with Jekyll-Asciidoc."
 
             script "jekyll"
-            scriptArgs "new"
-            workingDir jekyllOutputDir
+            scriptArgs "new", jekyllOutputDir
 
             doLast {
                 // Copy jinja output files to the working directory of Jekyll.
@@ -383,8 +382,6 @@ public class DocsPlugin implements Plugin<Project> {
                     from jekyllConfigDir
                     into jekyllOutputDirectory
                 }
-
-
             }
         }
 

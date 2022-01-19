@@ -1,3 +1,5 @@
+import com.github.jrubygradle.JRubyExec
+
 /*
  * Maintained by brightSPARK Labs.
  * www.brightsparklabs.com
@@ -51,10 +53,29 @@ dependencies {
             'org.asciidoctor:asciidoctor-gradle-jvm-pdf:3.3.0',
             'com.github.jruby-gradle:jruby-gradle-plugin:2.0.1',
             )
-    gems 'rubygems:jekyll:3.8.7'
+
+    // Add Gems dependencies here
+    gems 'rubygems:jekyll:4.2.1'
+    //gems 'rubygems:jekyll-asciidoc:3.0.0'
     // Use the awesome Spock testing and specification framework
     testImplementation "org.spockframework:spock-core:1.3-groovy-2.5"
 }
+
+// -----------------------------------------------------------------------------
+// EXAMPLE TASK
+// -----------------------------------------------------------------------------
+
+/*  A task that when operational should run the Jekyll script with the argument
+    "new" to show that the jekyll script is able to run
+
+def jekyllWorkDir = "src/website"
+
+task bslJekyllNew(type: JRubyExec){
+    group "brightSPARK Labs - Docs"
+    description "Build a website with Jekyll-Asciidoc."
+    script "jekyll"
+    scriptArgs "new", jekyllWorkDir
+} */
 
 // -----------------------------------------------------------------------------
 // PROJECT IDENTIFICATION
