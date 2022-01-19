@@ -20,8 +20,8 @@ plugins {
     // Apply the Java plugin to add support for Java
     id "java"
 
-    // Apply the Spotless plugin for formatting
-    id "com.diffplug.spotless" version "5.8.2"
+    // Apply the Gradle-Baseline plugin for dependency checking
+    id "com.brightsparklabs.gradle.baseline" version "2.0.0"
     }
 
 // -----------------------------------------------------------------------------
@@ -114,40 +114,5 @@ pluginBundle {
         docs {
             displayName = "Applies brightSPARK Labs standardisation to project documentation"
         }
-    }
-}
-
-// -----------------------------------------------------------------------------
-// spotless
-// -----------------------------------------------------------------------------
-
-def header = """/*
-               | * Maintained by brightSPARK Labs.
-               | * www.brightsparklabs.com
-               | *
-               | * Refer to LICENSE at repository root for license details.
-               | */
-             """.stripMargin("|")
-spotless {
-    java {
-        licenseHeader(header)
-        googleJavaFormat().aosp()
-    }
-    groovy {
-        licenseHeader(header)
-        excludeJava() // excludes all Java sources within the Groovy source dirs from formatting
-        // the Groovy Eclipse formatter extends the Java Eclipse formatter,
-        // so it formats Java files by default (unless `excludeJava` is used).
-        greclipse()
-        indentWithSpaces(4)
-    }
-    groovyGradle {
-        // same as groovy, but for .gradle (defaults to "*.gradle")
-
-        // unfortunately licenseHeader is currently unsupported on groovyGradle
-        //licenseHeader(header)
-
-        greclipse()
-        indentWithSpaces(4)
     }
 }
