@@ -22,7 +22,7 @@ plugins {
 
     // Apply the Spotless plugin for formatting
     id "com.diffplug.spotless" version "5.8.2"
-}
+    }
 
 // -----------------------------------------------------------------------------
 // REPOSITORIES/DEPENDENCIES
