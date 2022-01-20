@@ -10,19 +10,19 @@
 // -----------------------------------------------------------------------------
 
 plugins {
-    // Apply the Java Gradle plugin development plugin to add support for developing Gradle plugins
+    // Apply the Java Gradle plugin development plugin to add support for developing Gradle plugins.
     id "java-gradle-plugin"
     id "com.gradle.plugin-publish" version "0.19.0"
 
-    // Apply the Groovy plugin to add support for Groovy
+    // Apply the Groovy plugin to add support for Groovy.
     id "groovy"
 
-    // Apply the Java plugin to add support for Java
+    // Apply the Java plugin to add support for Java.
     id "java"
 
-    // Apply the Gradle-Baseline plugin for dependency checking
+    // Apply the Gradle-Baseline plugin for dependency checking.
     id "com.brightsparklabs.gradle.baseline" version "2.0.0"
-    }
+}
 
 // -----------------------------------------------------------------------------
 // REPOSITORIES/DEPENDENCIES
@@ -47,7 +47,7 @@ dependencies {
             'org.asciidoctor:asciidoctor-gradle-jvm:3.3.2',
             'org.asciidoctor:asciidoctor-gradle-jvm-pdf:3.3.2',
             )
-    // Use the awesome Spock testing and specification framework
+    // Use the awesome Spock testing and specification framework.
     testImplementation "org.spockframework:spock-core:2.0-groovy-3.0"
 }
 
