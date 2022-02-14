@@ -426,3 +426,7 @@ gradlew --include-build /path/to/gradle-docs <task>
 ## Licenses
 
 Refer to the `LICENSE` file for details.
+
+## Changes
+
+This creates and tracks changes to the repo to test commit/push.
