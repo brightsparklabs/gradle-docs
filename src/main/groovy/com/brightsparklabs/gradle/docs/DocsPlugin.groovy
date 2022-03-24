@@ -101,6 +101,12 @@ public class DocsPlugin implements Plugin<Project> {
             group = "brightSPARK Labs - Docs"
             description = "Performs Jinja2 pre-processing on documents"
 
+            String subProjectPath = "";
+            // Determine if the plugin is running in a sub-project and if so generate a sub-path
+            // to ensure that the file paths for getLastCommit accurately reflect their location
+            if(!(project.projectDir.toString() == project.rootDir.toString())) {
+                subProjectPath =   project.projectDir.toString() - project.rootDir.toString() - "/" + "/"
+            }
             doLast {
                 // Copy the entire directory and render files in-place to make
                 // keeping output folder structures intact easier.
@@ -131,7 +137,9 @@ public class DocsPlugin implements Plugin<Project> {
                     String yamlText = variablesFile.text
                     context.put('vars', yaml.load(yamlText))
 
-                    Map<String, Object> variablesFileLastCommit = getLastCommit(config.variablesFile, now)
+                    // subProjectPath adds the needed path prefix for when this plugin is ran in a sub-project
+                    // When it's not run in a sub-project a string of "" is provided which causes no change to the path
+                    Map<String, Object> variablesFileLastCommit = getLastCommit(subProjectPath+config.variablesFile, now)
                     context.put('vars_file_last_commit', variablesFileLastCommit)
                 }
                 else {
@@ -150,7 +158,9 @@ public class DocsPlugin implements Plugin<Project> {
                             jinjaOutputDir.toString(),
                             new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
                             )
-                    Map<String, Object> templateFileLastCommit = getLastCommit(templateSrcFile, now)
+                    // subProjectPath adds the needed path prefix for when this plugin is ran in a sub-project
+                    // When it's not run in a sub-project a string of "" is provided which causes no change to the path
+                    Map<String, Object> templateFileLastCommit = getLastCommit(subProjectPath+templateSrcFile, now)
                     String templateOutputFileName = templateFile.getName().replaceFirst(/\.j2$/, '')
                     File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
                     Map<String, Object> templateFileContext = [
@@ -179,7 +189,9 @@ public class DocsPlugin implements Plugin<Project> {
                                 jinjaOutputDir.toString(),
                                 new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
                                 ) + '.yaml'
-                        Map<String, Object> fileVariablesFileLastCommit = getLastCommit(fileVariablesSrcFile, now)
+                        // subProjectPath adds the needed path prefix for when this plugin is ran in a sub-project
+                        // When it's not run in a sub-project a string of "" is provided which causes no change to the path
+                        Map<String, Object> fileVariablesFileLastCommit = getLastCommit(subProjectPath+fileVariablesSrcFile, now)
                         templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
                         if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp)) {
                             outputFileContext.last_commit = fileVariablesFileLastCommit
@@ -202,7 +214,9 @@ public class DocsPlugin implements Plugin<Project> {
                                     jinjaOutputDir.toString(),
                                     new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
                                     )
-                            Map<String, Object> instanceFileLastCommit = getLastCommit(instanceSrcFile, now)
+                            // subProjectPath adds the needed path prefix for when this plugin is ran in a sub-project
+                            // When it's not run in a sub-project a string of "" is provided which causes no change to the path
+                            Map<String, Object> instanceFileLastCommit = getLastCommit(subProjectPath+instanceSrcFile, now)
                             // We want to output the file at the same level as the template file.
                             String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
                             File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
