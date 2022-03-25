@@ -193,7 +193,8 @@ public class DocsPlugin implements Plugin<Project> {
                         // When it's not run in a sub-project a string of "" is provided which causes no change to the path
                         Map<String, Object> fileVariablesFileLastCommit = getLastCommit(subProjectPath+fileVariablesSrcFile, now)
                         templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
-                        if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp)) {
+                        // Make sure that if we want to replace the commit hash that it actually has a commit hash to replace it with.
+                        if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp) && fileVariablesFileLastCommit.hash != "unspecified") {
                             outputFileContext.last_commit = fileVariablesFileLastCommit
                         }
                         fileVariables.delete()
@@ -238,7 +239,7 @@ public class DocsPlugin implements Plugin<Project> {
 
                             // Cache current last commit so next instance can cleanly compare.
                             def cachedLastCommit = outputFileContext.last_commit
-                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp)) {
+                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified"){
                                 outputFileContext.last_commit = instanceFileLastCommit
                             }
 
