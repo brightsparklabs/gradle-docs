@@ -22,7 +22,7 @@ plugins {
     id "java"
 
     // Apply the brightSPARK Labs plugin for standardisation.
-    id "com.brightsparklabs.gradle.baseline" version "2.0.0"
+    id "com.brightsparklabs.gradle.baseline" version "3.0.1"
 }
 
 // -----------------------------------------------------------------------------
