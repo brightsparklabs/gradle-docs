@@ -21,7 +21,7 @@ plugins {
     // Apply the Java plugin to add support for Java.
     id "java"
 
-    // Apply the Gradle-Baseline plugin for dependency checking.
+    // Apply the brightSPARK Labs plugin for standardisation.
     id "com.brightsparklabs.gradle.baseline" version "2.0.0"
 }
 
@@ -57,12 +57,6 @@ dependencies {
 // -----------------------------------------------------------------------------
 
 project.description = "Applies brightSPARK Labs standardisation to project documentation"
-project.group       = "com.brightsparklabs"
-
-def versionProcess  = "git describe --always --dirty".execute()
-versionProcess.waitFor()
-project.version     = versionProcess.exitValue() == 0 ? versionProcess.text.trim() : "0.0.0-UNKNOWN"
-
 project.ext.scm     = "https://github.com/brightsparklabs/gradle-docs.git"
 project.ext.url     = "https://github.com/brightsparklabs/gradle-docs"
 

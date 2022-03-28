@@ -101,6 +101,23 @@ public class DocsPlugin implements Plugin<Project> {
             group = "brightSPARK Labs - Docs"
             description = "Performs Jinja2 pre-processing on documents"
 
+            /* Calculate the relative path of this project's directory (i.e. the directory
+             * containing this project's `build.gradle` file) relative to the repo root.
+             *
+             * Generally the realtive path will simply by blank (i.e. `build.gradle` resides at the
+             * root of the repo). However, if the project is part of a Gradle multi-project build,
+             * then this will not be the case.
+             *
+             * This is variable is needed so that file path can be built for use in `git` commands
+             * which reference files in relation to the repo's root directory.
+             */
+            String projectRelativePath = "";
+            if (!(project.projectDir.toString() == project.rootDir.toString())) {
+                // This is a subproject in a Gradle multi-project build. Calculate relative path.
+                // The `/` subtract/add ensures the string ends with a slash.
+                projectRelativePath = project.projectDir.toString() - project.rootDir.toString() - "/" + "/"
+            }
+
             doLast {
                 // Copy the entire directory and render files in-place to make
                 // keeping output folder structures intact easier.
@@ -131,7 +148,7 @@ public class DocsPlugin implements Plugin<Project> {
                     String yamlText = variablesFile.text
                     context.put('vars', yaml.load(yamlText))
 
-                    Map<String, Object> variablesFileLastCommit = getLastCommit(config.variablesFile, now)
+                    Map<String, Object> variablesFileLastCommit = getLastCommit(projectRelativePath + config.variablesFile, now)
                     context.put('vars_file_last_commit', variablesFileLastCommit)
                 }
                 else {
@@ -150,7 +167,7 @@ public class DocsPlugin implements Plugin<Project> {
                             jinjaOutputDir.toString(),
                             new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
                             )
-                    Map<String, Object> templateFileLastCommit = getLastCommit(templateSrcFile, now)
+                    Map<String, Object> templateFileLastCommit = getLastCommit(projectRelativePath + templateSrcFile, now)
                     String templateOutputFileName = templateFile.getName().replaceFirst(/\.j2$/, '')
                     File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
                     Map<String, Object> templateFileContext = [
@@ -179,9 +196,10 @@ public class DocsPlugin implements Plugin<Project> {
                                 jinjaOutputDir.toString(),
                                 new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
                                 ) + '.yaml'
-                        Map<String, Object> fileVariablesFileLastCommit = getLastCommit(fileVariablesSrcFile, now)
+                        Map<String, Object> fileVariablesFileLastCommit = getLastCommit(projectRelativePath + fileVariablesSrcFile, now)
                         templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
-                        if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp)) {
+                        // Make sure that if we want to replace the commit hash that it actually has a commit hash to replace it with.
+                        if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp) && fileVariablesFileLastCommit.hash != "unspecified") {
                             outputFileContext.last_commit = fileVariablesFileLastCommit
                         }
                         fileVariables.delete()
@@ -202,7 +220,7 @@ public class DocsPlugin implements Plugin<Project> {
                                     jinjaOutputDir.toString(),
                                     new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
                                     )
-                            Map<String, Object> instanceFileLastCommit = getLastCommit(instanceSrcFile, now)
+                            Map<String, Object> instanceFileLastCommit = getLastCommit(projectRelativePath + instanceSrcFile, now)
                             // We want to output the file at the same level as the template file.
                             String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
                             File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
@@ -224,7 +242,7 @@ public class DocsPlugin implements Plugin<Project> {
 
                             // Cache current last commit so next instance can cleanly compare.
                             def cachedLastCommit = outputFileContext.last_commit
-                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp)) {
+                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified"){
                                 outputFileContext.last_commit = instanceFileLastCommit
                             }
 
