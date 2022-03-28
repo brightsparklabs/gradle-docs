@@ -6,6 +6,8 @@ master](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=master)
 
 Applies brightSPARK Labs standardisation to project documentation.
 
+**NOTE: This plugin requires JDK 17 or above.**
+
 ## Build
 
 Development Status: [![Build Status develop](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=develop)](https://travis-ci.org/brightsparklabs/gradle-docs)
