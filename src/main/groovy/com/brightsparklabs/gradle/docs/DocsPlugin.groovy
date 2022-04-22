@@ -128,6 +128,13 @@ public class DocsPlugin implements Plugin<Project> {
                     into jinjaOutputDir
                 }
 
+                project.file(config.buildImagesDir).delete()
+                project.file(config.buildImagesDir).mkdirs()
+                project.copy{
+                    from project.file(config.sourceImagesDir)
+                    into project.file(config.buildImagesDir)
+                }
+
                 def now = ZonedDateTime.now()
                 Map<String, Object> sysContext = [
                     project_name: project.name,
@@ -432,6 +439,7 @@ public class DocsPlugin implements Plugin<Project> {
                      * 'numbered'           -> numbers all headings
                      * 'source-highlighter' -> add syntax highlighting to source blocks
                      * 'toc': 'left'        -> places TOC on left hand site in HTML pages
+                     * 'title-logo-image'   -> defines the configuration of the image for pdf cover pages
                      *
                      * Appending `@` to lower precedence so that defaults can
                      * be overridden in Asciidoc documents. See:
@@ -440,7 +448,7 @@ public class DocsPlugin implements Plugin<Project> {
                     attributes \
                             'chapter-label@'      : '',
                             'icons@'              : 'font',
-                            'imagesdir@'          : project.file(config.imagesDir),
+                            'imagesdir@'          : project.file(config.buildImagesDir),
                             'numbered@'           : '',
                             'source-highlighter@' : 'coderay',
                             'toc@'                : config.tocPosition,
