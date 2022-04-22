@@ -7,6 +7,9 @@
 
 package com.brightsparklabs.gradle.docs
 
+import com.google.common.io.Resources
+import org.apache.commons.io.FileUtils
+
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -134,6 +137,10 @@ public class DocsPlugin implements Plugin<Project> {
                     from project.file(config.sourceImagesDir)
                     into project.file(config.buildImagesDir)
                 }
+
+                URL coverImageURL = Resources.getResource("bslDocumentationCoverPageLogo.svg")
+                File coverImageFile = new File(project.buildDir.toString() + "/docs/images","bslDocumentationCoverPageLogo.svg")
+                FileUtils.copyURLToFile(coverImageURL,coverImageFile)
 
                 def now = ZonedDateTime.now()
                 Map<String, Object> sysContext = [

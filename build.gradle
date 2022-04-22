@@ -47,6 +47,7 @@ dependencies {
             // NOTE: Obtain plugin dependency strings from plugins.gradle.org page
             'org.asciidoctor:asciidoctor-gradle-jvm:3.3.2',
             'org.asciidoctor:asciidoctor-gradle-jvm-pdf:3.3.2',
+            'commons-io:commons-io:2.11.0'
             )
     // Use the awesome Spock testing and specification framework.
     testImplementation "org.spockframework:spock-core:2.2-M1-groovy-4.0"
