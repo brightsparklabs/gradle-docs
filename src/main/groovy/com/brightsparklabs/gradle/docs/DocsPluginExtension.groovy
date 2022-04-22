@@ -22,4 +22,7 @@ class DocsPluginExtension {
 
     /** Position to place the Table of Contents. Default `left`. */
     String tocPosition = 'left'
+
+    /** The String to insert into adoc files which defines the configuration of the title-logo-image ( cover image) used with PDF generated documentation. */
+    String pdfLogoConfig = 'image:bslDocumentationCoverPageLogo.svg[pdfwidth=3.5in,align=center]\n'
 }

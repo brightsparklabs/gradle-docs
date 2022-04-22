@@ -438,12 +438,13 @@ public class DocsPlugin implements Plugin<Project> {
                      * - https://docs.asciidoctor.org/asciidoc/latest/attributes/assignment-precedence/
                      */
                     attributes \
-                        'chapter-label@'      : '',
+                            'chapter-label@'      : '',
                             'icons@'              : 'font',
                             'imagesdir@'          : project.file(config.imagesDir),
                             'numbered@'           : '',
                             'source-highlighter@' : 'coderay',
-                            'toc@'                : config.tocPosition
+                            'toc@'                : config.tocPosition,
+                            'title-logo-image@'   : config.pdfLogoConfig
                 }
             }
 
