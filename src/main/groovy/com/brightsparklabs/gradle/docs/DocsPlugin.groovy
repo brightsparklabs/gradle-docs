@@ -139,9 +139,15 @@ public class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Copy logo from Resources into build directory.
-                Files.copy(DocsPlugin.class.getResourceAsStream("/" + config.logoFileName),
-                        Paths.get(project.projectDir.toString() + "/" + config.buildImagesDir + config.logoFileName),
-                        StandardCopyOption.REPLACE_EXISTING)
+                try{
+                    DocsPlugin.class.getResourceAsStream("/" + config.logoFileName).withCloseable { is ->
+                        Files.copy(is,
+                                Paths.get(project.projectDir.toString() + "/" + config.buildImagesDir + config.logoFileName),
+                                StandardCopyOption.REPLACE_EXISTING)
+                    }
+                } catch(Exception ex) {
+                    throw new Exception("Could not copy ${config.logoFileName} from resources - ${ex.message}")
+                }
 
                 def now = ZonedDateTime.now()
                 Map<String, Object> sysContext = [
