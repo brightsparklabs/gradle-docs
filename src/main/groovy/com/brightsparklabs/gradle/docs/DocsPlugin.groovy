@@ -139,8 +139,8 @@ public class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Copy logo from Resources into build directory.
-                Files.copy(DocsPlugin.class.getResourceAsStream("/bslDocumentationCoverPageLogo.svg"),
-                        Paths.get(project.buildDir.toString() + "/docs/images/bslDocumentationCoverPageLogo.svg"),
+                Files.copy(DocsPlugin.class.getResourceAsStream("/" + config.logoFileName),
+                        Paths.get(project.projectDir.toString() + "/" + config.buildImagesDir + config.logoFileName),
                         StandardCopyOption.REPLACE_EXISTING)
 
                 def now = ZonedDateTime.now()
