@@ -7,24 +7,31 @@
 
 package com.brightsparklabs.gradle.docs
 
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-
-import org.gradle.api.Project
-import org.gradle.api.Plugin
-
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
+import groovy.io.FileType
+import org.gradle.api.Plugin
+import org.gradle.api.Project
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
+
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * The brightSPARK Labs Docs Plugin.
  */
 public class DocsPlugin implements Plugin<Project> {
+    // -------------------------------------------------------------------------
+    // CONSTANTS
+    // -------------------------------------------------------------------------
+
+    /** Name of the default logo file in the resources directory. This is also used as the
+     * destination file name when copying client supplied logos. */
+    public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
+
     // -------------------------------------------------------------------------
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
@@ -138,15 +145,16 @@ public class DocsPlugin implements Plugin<Project> {
                     into project.file(config.buildImagesDir)
                 }
 
-                // Copy logo from Resources into build directory.
-                try{
-                    DocsPlugin.class.getResourceAsStream("/" + config.logoFileName).withCloseable { is ->
-                        Files.copy(is,
-                                Paths.get(project.projectDir.toString() + "/" + config.buildImagesDir + config.logoFileName),
-                                StandardCopyOption.REPLACE_EXISTING)
-                    }
+                // Copy logo into build directory so it can be referenced in Asciidoc.
+                final Path outputFile = Paths.get("${project.projectDir}/${config.buildImagesDir}/${DEFAULT_LOGO_FILENAME}")
+                try {
+                    final logoBytes = config.logoFile
+                            .map {path -> path.toFile().readBytes() }
+                            .orElse(getClass().getResourceAsStream("/${DEFAULT_LOGO_FILENAME}").readAllBytes());
+                    outputFile.withOutputStream {stream -> stream.write(logoBytes)}
                 } catch(Exception ex) {
-                    throw new Exception("Could not copy ${config.logoFileName} from resources - ${ex.message}")
+                    logger.error("Could not copy logo file to build directory", ex)
+                    throw ex
                 }
 
                 def now = ZonedDateTime.now()
@@ -177,7 +185,7 @@ public class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Process templates.
-                jinjaOutputDir.traverse(type: groovy.io.FileType.FILES) { templateFile ->
+                jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
                     // Ignore file if it is not a Jinja2 template
                     if (! templateFile.name.endsWith(".j2")) {
                         logger.info("Skipping non-Jinja2 template [${templateFile}]")
@@ -230,7 +238,7 @@ public class DocsPlugin implements Plugin<Project> {
                     // Process instances if present.
                     File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
                     if (instancesDir.exists() && instancesDir.isDirectory()) {
-                        instancesDir.traverse(type: groovy.io.FileType.FILES) { instanceFile ->
+                        instancesDir.traverse(type: FileType.FILES) { instanceFile ->
                             // Ignore file if it is not a yaml file
                             if (! instanceFile.name.endsWith(".yaml")) {
                                 logger.info("Skipping non-YAML instance file [${instanceFile}]")
@@ -466,7 +474,7 @@ public class DocsPlugin implements Plugin<Project> {
                             'numbered@'           : '',
                             'source-highlighter@' : 'coderay',
                             'toc@'                : config.tocPosition,
-                            'title-logo-image@'   : config.pdfLogoConfig
+                            'title-logo-image@'   : config.titleLogoImage
                 }
             }
 

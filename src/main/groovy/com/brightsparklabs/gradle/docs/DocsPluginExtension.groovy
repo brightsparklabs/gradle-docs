@@ -7,6 +7,8 @@
 
 package com.brightsparklabs.gradle.docs
 
+import java.nio.file.Path
+
 /**
  * Configuration object for the Docs plugin.
  */
@@ -26,11 +28,12 @@ class DocsPluginExtension {
     /** Position to place the Table of Contents. Default `left`. */
     String tocPosition = 'left'
 
-    /** The name of the file to be used as the cover image.
-     * Default: `bslDocumentationCoverPageLogoColour.svg`
-     * Alternative: `bslDocumentationCoverPageLogoBlack.svg` */
-    String logoFileName = "bslDocumentationCoverPageLogoColour.svg"
+    /** Path to the logo file to use as the cover image. Defaults to the BSL logo. */
+    Optional<Path> logoFile = Optional.empty()
 
-    /** The String to insert into adoc files which defines the configuration of the title-logo-image ( cover image) used with PDF generated documentation. */
-    String pdfLogoConfig = 'image:' + logoFileName + '[pdfwidth=3.5in,align=center]\n'
+    /**
+     * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
+     * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`
+     */
+    String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n"
 }
