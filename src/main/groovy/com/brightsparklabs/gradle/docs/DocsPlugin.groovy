@@ -7,9 +7,9 @@
 
 package com.brightsparklabs.gradle.docs
 
-import com.google.common.io.Resources
-import org.apache.commons.io.FileUtils
-
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -138,9 +138,10 @@ public class DocsPlugin implements Plugin<Project> {
                     into project.file(config.buildImagesDir)
                 }
 
-                URL coverImageURL = Resources.getResource("bslDocumentationCoverPageLogo.svg")
-                File coverImageFile = new File(project.buildDir.toString() + "/docs/images","bslDocumentationCoverPageLogo.svg")
-                FileUtils.copyURLToFile(coverImageURL,coverImageFile)
+                // Copy logo from Resources into build directory.
+                Files.copy(DocsPlugin.class.getResourceAsStream("/bslDocumentationCoverPageLogo.svg"),
+                        Paths.get(project.buildDir.toString() + "/docs/images/bslDocumentationCoverPageLogo.svg"),
+                        StandardCopyOption.REPLACE_EXISTING)
 
                 def now = ZonedDateTime.now()
                 Map<String, Object> sysContext = [
