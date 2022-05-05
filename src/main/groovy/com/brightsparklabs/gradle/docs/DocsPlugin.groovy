@@ -7,21 +7,31 @@
 
 package com.brightsparklabs.gradle.docs
 
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-
-import org.gradle.api.Project
-import org.gradle.api.Plugin
-
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
+import groovy.io.FileType
+import org.gradle.api.Plugin
+import org.gradle.api.Project
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
+
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * The brightSPARK Labs Docs Plugin.
  */
 public class DocsPlugin implements Plugin<Project> {
+    // -------------------------------------------------------------------------
+    // CONSTANTS
+    // -------------------------------------------------------------------------
+
+    /** Name of the default logo file in the resources directory. This is also used as the
+     * destination file name when copying client supplied logos. */
+    public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
+
     // -------------------------------------------------------------------------
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
@@ -128,6 +138,25 @@ public class DocsPlugin implements Plugin<Project> {
                     into jinjaOutputDir
                 }
 
+                project.file(config.buildImagesDir).delete()
+                project.file(config.buildImagesDir).mkdirs()
+                project.copy{
+                    from project.file(config.sourceImagesDir)
+                    into project.file(config.buildImagesDir)
+                }
+
+                // Copy logo into build directory so it can be referenced in Asciidoc.
+                final Path outputFile = Paths.get("${project.projectDir}/${config.buildImagesDir}/${DEFAULT_LOGO_FILENAME}")
+                try {
+                    final logoBytes = config.logoFile
+                            .map {path -> path.toFile().readBytes() }
+                            .orElse(getClass().getResourceAsStream("/${DEFAULT_LOGO_FILENAME}").readAllBytes());
+                    outputFile.withOutputStream {stream -> stream.write(logoBytes)}
+                } catch(Exception ex) {
+                    logger.error("Could not copy logo file to build directory", ex)
+                    throw ex
+                }
+
                 def now = ZonedDateTime.now()
                 Map<String, Object> sysContext = [
                     project_name: project.name,
@@ -156,7 +185,7 @@ public class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Process templates.
-                jinjaOutputDir.traverse(type: groovy.io.FileType.FILES) { templateFile ->
+                jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
                     // Ignore file if it is not a Jinja2 template
                     if (! templateFile.name.endsWith(".j2")) {
                         logger.info("Skipping non-Jinja2 template [${templateFile}]")
@@ -209,7 +238,7 @@ public class DocsPlugin implements Plugin<Project> {
                     // Process instances if present.
                     File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
                     if (instancesDir.exists() && instancesDir.isDirectory()) {
-                        instancesDir.traverse(type: groovy.io.FileType.FILES) { instanceFile ->
+                        instancesDir.traverse(type: FileType.FILES) { instanceFile ->
                             // Ignore file if it is not a yaml file
                             if (! instanceFile.name.endsWith(".yaml")) {
                                 logger.info("Skipping non-YAML instance file [${instanceFile}]")
@@ -432,18 +461,20 @@ public class DocsPlugin implements Plugin<Project> {
                      * 'numbered'           -> numbers all headings
                      * 'source-highlighter' -> add syntax highlighting to source blocks
                      * 'toc': 'left'        -> places TOC on left hand site in HTML pages
+                     * 'title-logo-image'   -> defines the configuration of the image for pdf cover pages
                      *
                      * Appending `@` to lower precedence so that defaults can
                      * be overridden in Asciidoc documents. See:
                      * - https://docs.asciidoctor.org/asciidoc/latest/attributes/assignment-precedence/
                      */
                     attributes \
-                        'chapter-label@'      : '',
+                            'chapter-label@'      : '',
                             'icons@'              : 'font',
-                            'imagesdir@'          : project.file(config.imagesDir),
+                            'imagesdir@'          : project.file(config.buildImagesDir),
                             'numbered@'           : '',
                             'source-highlighter@' : 'coderay',
-                            'toc@'                : config.tocPosition
+                            'toc@'                : config.tocPosition,
+                            'title-logo-image@'   : config.titleLogoImage
                 }
             }
 
