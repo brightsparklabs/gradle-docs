@@ -29,7 +29,7 @@ class DocsPluginExtension {
     /** The name of the file to be used as the cover image.
      * Default: `bslDocumentationCoverPageLogoColour.svg`
      * Alternative: `bslDocumentationCoverPageLogoBlack.svg` */
-    String logoFileName = "bslDocumentationCoverPageLogoBlack.svg"
+    String logoFileName = "bslDocumentationCoverPageLogoColour.svg"
 
     /** The String to insert into adoc files which defines the configuration of the title-logo-image ( cover image) used with PDF generated documentation. */
     String pdfLogoConfig = 'image:' + logoFileName + '[pdfwidth=3.5in,align=center]\n'
