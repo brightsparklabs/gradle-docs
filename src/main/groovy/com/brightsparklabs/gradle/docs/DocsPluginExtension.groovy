@@ -33,7 +33,7 @@ class DocsPluginExtension {
 
     /**
      * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
-     * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`
+     * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n`
      */
-    String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n"
+    String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n"
 }
