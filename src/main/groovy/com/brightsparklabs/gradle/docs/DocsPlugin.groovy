@@ -451,10 +451,15 @@ public class DocsPlugin implements Plugin<Project> {
                 baseDirFollowsSourceFile()
 
                 asciidoctorj {
-                    // 'book' adds a cover page to the PDF
-                    options doctype: 'book'
+                    Map<String,Object> pluginOptions = [ "doctype": 'book'] // 'book' adds a cover page to the PDF
+                    pluginOptions.putAll(config.options)
+                    // Allows for the removal of any options for which the user defines a value of null
+                    pluginOptions.values().removeAll(Collections.singleton(null))
+                    options = config.options
 
                     /*
+                     * This is the list of default configurations that can be added to or modified via the attributes map
+                     *
                      * 'chapter-label': ''  -> do not prefix headings with anything
                      * 'icons'': 'font'     -> use Font Awesome for admonitions
                      * 'imagesdir'':        -> directory to resolve images from
@@ -467,14 +472,19 @@ public class DocsPlugin implements Plugin<Project> {
                      * be overridden in Asciidoc documents. See:
                      * - https://docs.asciidoctor.org/asciidoc/latest/attributes/assignment-precedence/
                      */
-                    attributes \
-                            'chapter-label@'      : '',
-                            'icons@'              : 'font',
-                            'imagesdir@'          : project.file(config.buildImagesDir),
-                            'numbered@'           : '',
-                            'source-highlighter@' : 'coderay',
-                            'toc@'                : config.tocPosition,
-                            'title-logo-image@'   : config.titleLogoImage
+
+                    Map<String,Object> pluginAttributes = [
+                            "chapter-label@":'',
+                            "icons@":'coderay',
+                            "numbered@":'',
+                            "source-highlighter@":'coderay',
+                            "toc@": config.tocPosition,
+                            "title-logo-image@":config.titleLogoImage,
+                            "imagesdir@": project.file(config.buildImagesDir)]
+                    pluginAttributes.putAll(config.attributes)
+                    // Allows for the removal of any attributes for which the user defines a value of null
+                    pluginAttributes.values().removeAll(Collections.singleton(null))
+                    attributes = pluginAttributes
                 }
             }
 
