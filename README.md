@@ -366,12 +366,12 @@ docsPluginConfig {
     // Name of the directory (relative to project root) containing the documents to process.
     // Default: `src/docs/`.
     docsDir = 'asciiDocs/'
-  
+
     // Name of the directory (relative to project root) containing the source images.
     // Default: `src/images`.
     sourceImagesDir = 'images/'
 
-    // Name of the directory (relative to project root) where the images are copies for processing.
+    // Name of the directory (relative to project root) where the images are copied for processing.
     // Default: `build/docs/images/`.
     buildImagesDir = 'build/images/'
 
@@ -389,21 +389,24 @@ docsPluginConfig {
     titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
   
     // The list of options that will be used by asciidoctor when rendering the documents.
-    // Default Options: `["doctype":'book']`
+    // Default Options: `["doctype" : 'book']`
     options = ["doctype" : 'article']
 
     // The list of attributes that will be used by asciidoctor when rendering the documents.
     // To remove a pre-existing attribute, set the value of that attribute to null as shown below
     // Default Attributes: `[
-    //           "chapter-label@":'',
-    //           "icons@":'coderay',
-    //           "numbered@":'',
-    //           "source-highlighter@":'coderay',
-    //           "toc@": config.tocPosition,
-    //           "title-logo-image@":config.titleLogoImage,
-    //           "imagesdir@":project.file(config.buildImagesDir)]`.
-    attributes = ["chapter-label@" : 'Chapter', "toc@" : null]
-
+    //           "chapter-label@"       : '',
+    //           "icons@"               : 'coderay',
+    //           "numbered@"            : '',
+    //           "source-highlighter@"  : 'coderay',
+    //           "toc@"                 : tocPosition,
+    //           "title-logo-image@"    : titleLogoImage,
+    //           "imagesdir@"           : buildImagesDir
+    //           ]`.
+    attributes = [
+        "chapter-label@"    : 'Chapter', 
+        "toc@"              : null
+    ]
 }
 ```
 

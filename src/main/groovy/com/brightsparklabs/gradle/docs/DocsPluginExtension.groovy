@@ -22,7 +22,7 @@ class DocsPluginExtension {
     /** Name of the directory (relative to project root) containing the source images. Default: `src/images`. */
     String sourceImagesDir = 'src/images/'
 
-    /** Name of the directory (relative to project root) where the images are copies for processing. Default: `build/docs/images/`. */
+    /** Name of the directory (relative to project root) where the images are copied for processing. Default: `build/docs/images/`. */
     String buildImagesDir = 'build/docs/images/'
 
     /** Position to place the Table of Contents. Default `left`. */
