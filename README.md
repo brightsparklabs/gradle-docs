@@ -366,24 +366,44 @@ docsPluginConfig {
     // Name of the directory (relative to project root) containing the documents to process.
     // Default: `src/docs/`.
     docsDir = 'asciiDocs/'
-
-    // Name of the directory (relative to project root) containing the images.
+  
+    // Name of the directory (relative to project root) containing the source images.
     // Default: `src/images`.
-    imagesDir = 'images/'
+    sourceImagesDir = 'images/'
+
+    // Name of the directory (relative to project root) where the images are copies for processing.
+    // Default: `build/docs/images/`.
+    buildImagesDir = 'build/images/'
 
     // Position for the Table of Contents. Refer to:
     //  - https://docs.asciidoctor.org/asciidoc/latest/toc/position
     // Default: `left`.
     tocPosition = 'macro'
 
-  /** Path to the logo file to use as the cover image. Defaults to the BSL logo. */
-  Optional<Path> logoFile = Optional.of(Path.get("src/custom-logo.svg"))
+    // Path to the logo file to use as the cover image.
+    // Default: `Optional.empty()`.
+    logoFile = Optional.of(Path.get("src/custom-logo.svg"))
+  
+    // The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
+    // Default: `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`.
+    titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
+  
+    // The list of options that will be used by asciidoctor when rendering the documents.
+    // Default Options: `["doctype":'book']`
+    options = ["doctype" : 'article']
 
-  /**
-   * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
-   * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`
-   */
-  String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
+    // The list of attributes that will be used by asciidoctor when rendering the documents.
+    // To remove a pre-existing attribute, set the value of that attribute to null as shown below
+    // Default Attributes: `[
+    //           "chapter-label@":'',
+    //           "icons@":'coderay',
+    //           "numbered@":'',
+    //           "source-highlighter@":'coderay',
+    //           "toc@": config.tocPosition,
+    //           "title-logo-image@":config.titleLogoImage,
+    //           "imagesdir@":project.file(config.buildImagesDir)]`.
+    attributes = ["chapter-label@" : 'Chapter', "toc@" : null]
+
 }
 ```
 
