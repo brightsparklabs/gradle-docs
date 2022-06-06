@@ -36,4 +36,16 @@ class DocsPluginExtension {
      * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n`
      */
     String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n"
+
+    /**
+     * The list of options that will be used by asciidoctor when rendering the documents.
+     * Default: `Map<String,Object> options = [:]`
+     */
+    Map<String,Object> options = [:]
+
+    /**
+     * The additions or updates to the list of attributes that will be used by asciidoctor when rendering the documents.
+     * Default: `Map<String,Object> attributes = [:]`
+     */
+    Map<String,Object> attributes = [:]
 }
