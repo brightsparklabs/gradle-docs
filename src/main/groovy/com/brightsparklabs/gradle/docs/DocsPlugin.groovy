@@ -474,13 +474,13 @@ public class DocsPlugin implements Plugin<Project> {
                      */
 
                     Map<String,Object> pluginAttributes = [
-                            "chapter-label@":'',
-                            "icons@":'coderay',
-                            "numbered@":'',
-                            "source-highlighter@":'coderay',
-                            "toc@": config.tocPosition,
-                            "title-logo-image@":config.titleLogoImage,
-                            "imagesdir@": project.file(config.buildImagesDir)]
+                        "chapter-label@":'',
+                        "icons@":'coderay',
+                        "numbered@":'',
+                        "source-highlighter@":'coderay',
+                        "toc@": config.tocPosition,
+                        "title-logo-image@":config.titleLogoImage,
+                        "imagesdir@": project.file(config.buildImagesDir)]
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
                     pluginAttributes.values().removeAll(Collections.singleton(null))
