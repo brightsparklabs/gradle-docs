@@ -451,7 +451,8 @@ public class DocsPlugin implements Plugin<Project> {
                 baseDirFollowsSourceFile()
 
                 asciidoctorj {
-                    Map<String,Object> pluginOptions = [ "doctype": 'book'] // 'book' adds a cover page to the PDF
+                    // 'book' adds a cover page to the PDF
+                    Map<String,Object> pluginOptions = [ "doctype" : 'book' ]
                     pluginOptions.putAll(config.options)
                     // Allows for the removal of any options for which the user defines a value of null
                     pluginOptions.values().removeAll(Collections.singleton(null))
@@ -474,13 +475,14 @@ public class DocsPlugin implements Plugin<Project> {
                      */
 
                     Map<String,Object> pluginAttributes = [
-                        "chapter-label@":'',
-                        "icons@":'coderay',
-                        "numbered@":'',
-                        "source-highlighter@":'coderay',
-                        "toc@": config.tocPosition,
-                        "title-logo-image@":config.titleLogoImage,
-                        "imagesdir@": project.file(config.buildImagesDir)]
+                        "chapter-label@"        : '',
+                        "icons@"                : 'coderay',
+                        "numbered@"             : '',
+                        "source-highlighter@"   : 'coderay',
+                        "toc@"                  : config.tocPosition,
+                        "title-logo-image@"     : config.titleLogoImage,
+                        "imagesdir@"            : project.file(config.buildImagesDir)
+                    ]
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
                     pluginAttributes.values().removeAll(Collections.singleton(null))
