@@ -388,24 +388,32 @@ docsPluginConfig {
     // Default: `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`.
     titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
   
-    // The list of options that will be used by asciidoctor when rendering the documents.
+    // Modifications that will be made to the default asciidoctorj options for rendering the document.
+    // Adding a non-existent key will add the option.
+    // Adding an existing key will override the pre-existing option.
+    // Adding an existing key with a value of `null` will remove the option.
     // Default Options: `["doctype" : 'book']`
     options = ["doctype" : 'article']
 
-    // The list of attributes that will be used by asciidoctor when rendering the documents.
-    // To remove a pre-existing attribute, set the value of that attribute to null as shown below
+ 
+    // Modifications that will be made to the list of attributes that will be used by asciidoctor when rendering the documents.
+    // Adding a non-existent key will add the attribute.
+    // Adding an existing key will override the pre-existing attribute.
+    // Adding an existing key with a value of `null` will remove the attribute.
+  
     // Default Attributes: `[
-    //           "chapter-label@"       : '',
-    //           "icons@"               : 'coderay',
-    //           "numbered@"            : '',
-    //           "source-highlighter@"  : 'coderay',
-    //           "toc@"                 : tocPosition,
-    //           "title-logo-image@"    : titleLogoImage,
-    //           "imagesdir@"           : buildImagesDir
+    //           'chapter-label@'       : '',
+    //           'icon-set@'            : 'fas',
+    //           'icons@'               : 'font',
+    //           'imagesdir@'           : buildImagesDir,
+    //           'numbered@'            : '',
+    //           'source-highlighter@'  : 'coderay',
+    //           'title-logo-image@'    : titleLogoImage,
+    //           'toc@'                 : tocPosition
     //           ]`.
     attributes = [
-        "chapter-label@"    : 'Chapter', 
-        "toc@"              : null
+        'chapter-label@'    : 'Chapter', 
+        'toc@'              : null
     ]
 }
 ```

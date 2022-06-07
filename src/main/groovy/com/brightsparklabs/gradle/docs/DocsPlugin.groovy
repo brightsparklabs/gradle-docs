@@ -28,9 +28,15 @@ public class DocsPlugin implements Plugin<Project> {
     // CONSTANTS
     // -------------------------------------------------------------------------
 
-    /** Name of the default logo file in the resources directory. This is also used as the
-     * destination file name when copying client supplied logos. */
+    /**
+     * Name of the default logo file in the resources directory. This is also used as the
+     * destination file name when copying client supplied logos.
+     */
     public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
+    /**
+     * The default set of options that will be provided to AsciiDoctor for rendering the document.
+     */
+    public static final Map<String,Object> DEFAULT_ASCIIDOCTOR_OPTIONS = [ "doctype" : 'book' ]
 
     // -------------------------------------------------------------------------
     // INSTANCE VARIABLES
@@ -452,7 +458,8 @@ public class DocsPlugin implements Plugin<Project> {
 
                 asciidoctorj {
                     // 'book' adds a cover page to the PDF
-                    Map<String,Object> pluginOptions = [ "doctype" : 'book' ]
+                    Map<String,Object> pluginOptions = [:]
+                    pluginOptions.putAll(DEFAULT_ASCIIDOCTOR_OPTIONS)
                     pluginOptions.putAll(config.options)
                     // Allows for the removal of any options for which the user defines a value of null
                     pluginOptions.values().removeAll(Collections.singleton(null))
@@ -466,8 +473,8 @@ public class DocsPlugin implements Plugin<Project> {
                      * 'imagesdir'':        -> directory to resolve images from
                      * 'numbered'           -> numbers all headings
                      * 'source-highlighter' -> add syntax highlighting to source blocks
-                     * 'toc': 'left'        -> places TOC on left hand site in HTML pages
                      * 'title-logo-image'   -> defines the configuration of the image for pdf cover pages
+                     * 'toc': 'left'        -> places TOC on left hand site in HTML pages
                      *
                      * Appending `@` to lower precedence so that defaults can
                      * be overridden in Asciidoc documents. See:
@@ -475,13 +482,14 @@ public class DocsPlugin implements Plugin<Project> {
                      */
 
                     Map<String,Object> pluginAttributes = [
-                        "chapter-label@"        : '',
-                        "icons@"                : 'coderay',
-                        "numbered@"             : '',
-                        "source-highlighter@"   : 'coderay',
-                        "toc@"                  : config.tocPosition,
-                        "title-logo-image@"     : config.titleLogoImage,
-                        "imagesdir@"            : project.file(config.buildImagesDir)
+                        'chapter-label@'        : '',
+                        'icon-set@'             : 'fas',
+                        'icons@'                : 'font',
+                        'imagesdir@'            : project.file(config.buildImagesDir),
+                        'numbered@'             : '',
+                        'source-highlighter@'   : 'coderay',
+                        'title-logo-image@'     : config.titleLogoImage,
+                        'toc@'                  : config.tocPosition
                     ]
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
