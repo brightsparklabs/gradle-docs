@@ -462,7 +462,7 @@ public class DocsPlugin implements Plugin<Project> {
                     pluginOptions.putAll(DEFAULT_ASCIIDOCTOR_OPTIONS)
                     pluginOptions.putAll(config.options)
                     // Allows for the removal of any options for which the user defines a value of null
-                    pluginOptions.values().removeAll(Collections.singleton(null))
+                    pluginOptions.values().removeIf(Objects::isNull)
                     options = config.options
 
                     /*
@@ -493,7 +493,7 @@ public class DocsPlugin implements Plugin<Project> {
                     ]
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
-                    pluginAttributes.values().removeAll(Collections.singleton(null))
+                    pluginAttributes.values().removeIf(Objects::isNull)
                     attributes = pluginAttributes
                 }
             }
