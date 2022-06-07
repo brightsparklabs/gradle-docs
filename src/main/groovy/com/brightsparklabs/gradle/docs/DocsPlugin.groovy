@@ -462,13 +462,14 @@ public class DocsPlugin implements Plugin<Project> {
                     pluginOptions.putAll(DEFAULT_ASCIIDOCTOR_OPTIONS)
                     pluginOptions.putAll(config.options)
                     // Allows for the removal of any options for which the user defines a value of null
-                    pluginOptions.values().removeIf(Objects::isNull)
+                    pluginOptions.values().removeIf { o -> !Objects.nonNull(o) }
                     options = config.options
 
                     /*
                      * This is the list of default configurations that can be added to or modified via the attributes map
                      *
                      * 'chapter-label': ''  -> do not prefix headings with anything
+                     * 'icon-set':          -> use Font Awesome icon set
                      * 'icons'': 'font'     -> use Font Awesome for admonitions
                      * 'imagesdir'':        -> directory to resolve images from
                      * 'numbered'           -> numbers all headings
@@ -493,7 +494,7 @@ public class DocsPlugin implements Plugin<Project> {
                     ]
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
-                    pluginAttributes.values().removeIf(Objects::isNull)
+                    pluginAttributes.values().removeIf { a -> !Objects.nonNull(a) }
                     attributes = pluginAttributes
                 }
             }
