@@ -22,7 +22,7 @@ class DocsPluginExtension {
     /** Name of the directory (relative to project root) containing the source images. Default: `src/images`. */
     String sourceImagesDir = 'src/images/'
 
-    /** Name of the directory (relative to project root) where the images are copies for processing. Default: `build/docs/images/`. */
+    /** Name of the directory (relative to project root) where the images are copied for processing. Default: `build/docs/images/`. */
     String buildImagesDir = 'build/docs/images/'
 
     /** Position to place the Table of Contents. Default `left`. */
@@ -32,8 +32,26 @@ class DocsPluginExtension {
     Optional<Path> logoFile = Optional.empty()
 
     /**
-     * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
+     * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.<p>
      * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n`
      */
     String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n"
+
+    /**
+     * Modifications that will be made to the default asciidoctorj options for rendering the document.<p>
+     * Adding a non-existent key will add the option.<p>
+     * Adding an existing key will override the pre-existing option.<p>
+     * Adding an existing key with a value of `null` will remove the option.<p>
+     * Default: `Map<String,Object> options = [:]`
+     */
+    Map<String,Object> options = [:]
+
+    /**
+     * Modifications that will be made to the list of attributes that will be used by asciidoctor when rendering the documents.<p>
+     * Adding a non-existent key will add the attribute.<p>
+     * Adding an existing key will override the pre-existing attribute.<p>
+     * Adding an existing key with a value of `null` will remove the attribute.<p>
+     * Default: `Map<String,Object> attributes = [:]`
+     */
+    Map<String,Object> attributes = [:]
 }
