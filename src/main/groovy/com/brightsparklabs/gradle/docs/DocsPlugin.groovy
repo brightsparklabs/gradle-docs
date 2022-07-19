@@ -463,7 +463,7 @@ public class DocsPlugin implements Plugin<Project> {
                     pluginOptions.putAll(config.options)
                     // Allows for the removal of any options for which the user defines a value of null
                     pluginOptions.values().removeIf { o -> !Objects.nonNull(o) }
-                    options = config.options
+                    options = pluginOptions
 
                     /*
                      * This is the list of default configurations that can be added to or modified via the attributes map
