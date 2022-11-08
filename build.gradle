@@ -12,7 +12,7 @@
 plugins {
     // Apply the Java Gradle plugin development plugin to add support for developing Gradle plugins.
     id "java-gradle-plugin"
-    id "com.gradle.plugin-publish" version "0.21.0"
+    id "com.gradle.plugin-publish" version "1.0.0"
     id 'maven-publish'
 
     // Apply the Groovy plugin to add support for Groovy.
@@ -64,11 +64,24 @@ project.ext.url     = "https://github.com/brightsparklabs/gradle-docs"
 // java-gradle-plugin
 // -----------------------------------------------------------------------------
 
+pluginBundle {
+    website = project.url
+    vcsUrl = project.scm
+    tags = [
+        "brightsparklabs",
+        "docs",
+        "asciidoc",
+        "asciidoctor",
+    ]
+}
+
 gradlePlugin {
-    // Define the plugin
+    // Define the plugin.
     plugins {
         docs {
             id = "com.brightsparklabs.gradle.docs"
+            displayName = "Gradle Docs at brightSPARK Labs"
+            description = project.description
             implementationClass = "com.brightsparklabs.gradle.docs.DocsPlugin"
         }
     }
@@ -94,20 +107,12 @@ check {
     dependsOn(tasks.functionalTest)
 }
 
-pluginBundle {
-    website = project.url
-    vcsUrl = project.scm
-    description = project.description
-    tags = [
-        "brightsparklabs",
-        "docs",
-        "asciidoc",
-        "asciidoctor",
-    ]
+// -----------------------------------------------------------------------------
+// Shadow Plugin (from "com.brightsparklabs.gradle.baseline")
+// -----------------------------------------------------------------------------
 
-    plugins {
-        docs {
-            displayName = "Applies brightSPARK Labs standardisation to project documentation"
-        }
-    }
+// Shadow JAR is not applicable to this project.
+tasks.shadowJar.enabled = false
+shadowJar {
+    classifier = ''
 }
