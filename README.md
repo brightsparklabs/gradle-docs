@@ -220,6 +220,15 @@ template_file:
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
 
+# (Dynamic) Variables pertaining to the CURRENT directory of the template being rendered.
+template_dir:
+  # The relative path (in docs directory) of the directory containing the source template file.
+  path: <path>
+
+  # User defined variables from directory variables YAML file (`./variables.yaml`).
+  vars:
+    ...
+
 # (Dynamic) User defined variables from the CURRENT instance variable file being processed (if
 # present).
 #

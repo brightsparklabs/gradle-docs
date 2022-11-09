@@ -173,7 +173,9 @@ public class DocsPlugin implements Plugin<Project> {
                     repo_last_commit: getLastCommit('.', now),
                 ]
 
-                // Build Jinja2 context.
+                // ------------------------------------------------------------
+                // ROOT JINJA2 CONTEXT
+                // ------------------------------------------------------------
                 Map<String, Object> context = [
                     sys: sysContext,
                 ]
@@ -190,6 +192,10 @@ public class DocsPlugin implements Plugin<Project> {
                     logger.warn("Not adding global variables to Jinja2 context as no file found at [${variablesFile}]")
                 }
 
+                // All directory variable files which have been loaded.
+                // Key is the full path to the dir, value is a map of the variables from the dir.
+                final Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles = [:]
+
                 // Process templates.
                 jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
                     // Ignore file if it is not a Jinja2 template
@@ -198,6 +204,23 @@ public class DocsPlugin implements Plugin<Project> {
                         return
                     }
 
+                    // ------------------------------------------------------------
+                    // TEMPLATE DIR CONTEXT
+                    // ------------------------------------------------------------
+                    final def templateDir = templateFile.getParentFile()
+                    final def templateDirVariables = getDirVariables(templateDir, loadedDirVariablesFiles)
+                    final def templateDirRelativePath = templateDir.getPath().replaceFirst(
+                            jinjaOutputDir.toString(),
+                            new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
+                            ).replaceFirst(config.docsDir + '/?', '')
+                    final def templateDirContext  = [
+                        path: templateDirRelativePath,
+                        vars: templateDirVariables]
+                    context.put('template_dir', templateDirContext)
+
+                    // ------------------------------------------------------------
+                    // TEMPLATE FILE CONTEXT
+                    // ------------------------------------------------------------
                     String templateSrcFile = templateFile.getPath().replaceFirst(
                             jinjaOutputDir.toString(),
                             new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
@@ -207,12 +230,15 @@ public class DocsPlugin implements Plugin<Project> {
                     File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
                     Map<String, Object> templateFileContext = [
                         name: templateFile.getName(),
-                        // Relative to docs directory.
-                        path: templateSrcFile.replaceFirst(config.docsDir + '/?', ''),
+                        // Relative to docs directory (`toString` to prevent GString in map).
+                        path: "${templateDirRelativePath}/${templateFile.getName()}".toString(),
                         last_commit: templateFileLastCommit,
                     ]
                     context.put('template_file', templateFileContext)
 
+                    // ------------------------------------------------------------
+                    // OUTPUT FILE CONTEXT
+                    // ------------------------------------------------------------
                     Map<String, Object> outputFileContext = [
                         name: templateOutputFileName,
                         // Relative to output directory.
@@ -299,7 +325,8 @@ public class DocsPlugin implements Plugin<Project> {
                         writeTemplateToFile(templateFile, context, templateOutputFile)
                     }
 
-                    // clean out context and template
+                    // Clean out context and template.
+                    context.remove('template_dir')
                     context.remove('template_file')
                     context.remove('output_file')
                     templateFile.delete()
@@ -385,7 +412,7 @@ public class DocsPlugin implements Plugin<Project> {
      *
      * Map of the various formatted strings.
      */
-    private Map<String, String> getFormattedTimestamps(ZonedDateTime timestamp) {
+    private static Map<String, String> getFormattedTimestamps(ZonedDateTime timestamp) {
         def isoUtcString = timestamp.format(DateTimeFormatter.ISO_INSTANT)
         def isoOffsetString = timestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
         return [
@@ -396,6 +423,36 @@ public class DocsPlugin implements Plugin<Project> {
             iso_offset_space: isoOffsetString.replace('T', ' '),
             iso_offset_safe: isoOffsetString.replace(':', ''),
         ]
+    }
+
+    /**
+     * Returns the variables from the `variables.yaml` file in the template file's directory. Or empty if no variables are present.
+     * This method will cache the result in the `loadedDirVariablesFiles` (i.e. will modify it).
+     * 
+     * @param dir The directory the template is from.
+     * @param loadedDirVariablesFiles Cache of all the directory variables files previously loaded.
+     * @return The dir variables pertaining to the template.
+     */
+    private Map<String, Object> getDirVariables(File dir, Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles) {
+        final def dirName = dir.getAbsolutePath()
+        final def extantDirVariables = loadedDirVariablesFiles.get(dirName)
+        if (extantDirVariables != null) {
+            return extantDirVariables.orElse([:])
+        }
+
+        final File dirVariablesFile = new File(dir, "variables.yaml")
+        if (!dirVariablesFile.exists()) {
+            loadedDirVariablesFiles.put(dirName, Optional.empty())
+            return [:]
+        }
+
+        final def yamlText = dirVariablesFile.text
+        final def dirVariables = yaml.<Map<String, Object>>load(yamlText)
+        final def result  =  Optional.of(dirVariables)
+        loadedDirVariablesFiles.put(dirName, result)
+        // Delete the variables file since we do not want it in the final output dir.
+        dirVariablesFile.delete()
+        return dirVariables
     }
 
     /**
