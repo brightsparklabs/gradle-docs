@@ -440,7 +440,7 @@ public class DocsPlugin implements Plugin<Project> {
             return extantDirVariables.orElse([:])
         }
 
-        final def File dirVariablesFile = new File(dir, "variables.yaml")
+        final File dirVariablesFile = new File(dir, "variables.yaml")
         if (!dirVariablesFile.exists()) {
             loadedDirVariablesFiles.put(dirName, Optional.empty())
             return [:]
