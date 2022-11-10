@@ -107,12 +107,18 @@ check {
     dependsOn(tasks.functionalTest)
 }
 
+// Should not be needed with "com.gradle.plugin-publish:1.0.0"
+// See: https://github.com/gradle/gradle/issues/19331
+project.afterEvaluate {
+    tasks.named("generateMetadataFileForPluginMavenPublication") {
+        dependsOn("jar")
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Shadow Plugin (from "com.brightsparklabs.gradle.baseline")
 // -----------------------------------------------------------------------------
 
-// Shadow JAR is not applicable to this project.
-tasks.shadowJar.enabled = false
 shadowJar {
     classifier = ''
 }
