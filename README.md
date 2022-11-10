@@ -220,6 +220,15 @@ template_file:
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
 
+# (Dynamic) Variables pertaining to the CURRENT directory of the template being rendered.
+template_dir:
+  # The relative path (in docs directory) of the directory containing the source template file.
+  path: <path>
+
+  # User defined variables from directory variables YAML file (`./variables.yaml`).
+  vars:
+    ...
+
 # (Dynamic) User defined variables from the CURRENT instance variable file being processed (if
 # present).
 #
@@ -367,23 +376,54 @@ docsPluginConfig {
     // Default: `src/docs/`.
     docsDir = 'asciiDocs/'
 
-    // Name of the directory (relative to project root) containing the images.
+    // Name of the directory (relative to project root) containing the source images.
     // Default: `src/images`.
-    imagesDir = 'images/'
+    sourceImagesDir = 'images/'
+
+    // Name of the directory (relative to project root) where the images are copied for processing.
+    // Default: `build/docs/images/`.
+    buildImagesDir = 'build/images/'
 
     // Position for the Table of Contents. Refer to:
     //  - https://docs.asciidoctor.org/asciidoc/latest/toc/position
     // Default: `left`.
     tocPosition = 'macro'
 
-  /** Path to the logo file to use as the cover image. Defaults to the BSL logo. */
-  Optional<Path> logoFile = Optional.of(Path.get("src/custom-logo.svg"))
+    // Path to the logo file to use as the cover image.
+    // Default: `Optional.empty()`.
+    logoFile = Optional.of(Path.get("src/custom-logo.svg"))
+  
+    // The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
+    // Default: `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`.
+    titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
+  
+    // Modifications that will be made to the default asciidoctorj options for rendering the document.
+    // Adding a non-existent key will add the option.
+    // Adding an existing key will override the pre-existing option.
+    // Adding an existing key with a value of `null` will remove the option.
+    // Default Options: `["doctype" : 'book']`
+    options = ["doctype" : 'article']
 
-  /**
-   * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
-   * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`
-   */
-  String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
+ 
+    // Modifications that will be made to the list of attributes that will be used by asciidoctor when rendering the documents.
+    // Adding a non-existent key will add the attribute.
+    // Adding an existing key will override the pre-existing attribute.
+    // Adding an existing key with a value of `null` will remove the attribute.
+  
+    // Default Attributes: `[
+    //           'chapter-label@'       : '',
+    //           'icon-set@'            : 'fas',
+    //           'icons@'               : 'font',
+    //           'imagesdir@'           : buildImagesDir,
+    //           'numbered@'            : '',
+    //           'source-highlighter@'  : 'coderay',
+    //           'title-logo-image@'    : titleLogoImage,
+    //           'toc@'                 : tocPosition
+    //           ]`.
+    attributes = [
+        'chapter-label@'    : 'Chapter', 
+        'toc@'              : null
+    ]
 }
 ```
 
