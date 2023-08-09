@@ -42,7 +42,8 @@ By default:
   macros](https://docs.asciidoctor.org/asciidoc/latest/macros/images/).
 - Any files ending with `.j2` will first be processed by
   [Jinjava](https://github.com/HubSpot/jinjava) (Java port of Python Jinja2).
-- A number of Jinja2 macros are added by default. See [Default Jinja2 Macros](#default-jinja2-macros)
+- A number of Jinja2 macros are added by default. See
+  [brightSPARK Labs Jinja2 Macros](#brightspark-labs-jinja2-macros).
 
 Running `./gradlew build` will generate PDF and HTML of the documentation.
 
@@ -398,12 +399,6 @@ Convert AsciiDoc files to PDF format.
 
 Alias `bslAsciidoctorPdf`.
 
-## Default Jinja2 Macros
-
-The following Jinja2 macros are added by default:
-
-- `bsl_add_default_attributes()` - Adds the standard set of AsciiDoc attributes to the document.
-
 ## Configuration
 
 Use the following configuration block to configure the plugin:
@@ -414,6 +409,24 @@ Use the following configuration block to configure the plugin:
 project.version = 'git describe --always --dirty'.execute().text.trim()
 
 docsPluginConfig {
+    /**
+     * Set to `true` to auto import brightSPARK Labs Jinja2 macros under `brightsparklabs`
+     * namespace. Default: `true`.
+     */
+    autoImportMacros = false
+
+    /**
+     * Path to a header file (relative to project root) which contains a header to prepend to each
+     * Jinja2 file prior to rendering. Default: `src/header.j2`.
+     */
+    templateHeaderFile = 'src/my-custom-header.j2'
+
+    /**
+     * Path to a footer file (relative to project root) which contains a footer to append to each
+     * Jinja2 file prior to rendering. Default: `src/footer.j2`.
+     */
+    templateFooterFile = 'src/my-custom-footer.j2'
+
     // YAML file containing context variables used when rendering Jinja2 templates.
     // Default: `src/variables.yaml`.
     variablesFile = 'src/my-variables.yaml'
@@ -438,11 +451,11 @@ docsPluginConfig {
     // Path to the logo file to use as the cover image.
     // Default: `Optional.empty()`.
     logoFile = Optional.of(Path.get("src/custom-logo.svg"))
-  
+
     // The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
     // Default: `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`.
     titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
-  
+
     // Modifications that will be made to the default asciidoctorj options for rendering the document.
     // Adding a non-existent key will add the option.
     // Adding an existing key will override the pre-existing option.
@@ -450,12 +463,12 @@ docsPluginConfig {
     // Default Options: `["doctype" : 'book']`
     options = ["doctype" : 'article']
 
- 
+
     // Modifications that will be made to the list of attributes that will be used by asciidoctor when rendering the documents.
     // Adding a non-existent key will add the attribute.
     // Adding an existing key will override the pre-existing attribute.
     // Adding an existing key with a value of `null` will remove the attribute.
-  
+
     // Default Attributes: `[
     //           'chapter-label@'       : '',
     //           'icon-set@'            : 'fas',
@@ -467,11 +480,26 @@ docsPluginConfig {
     //           'toc@'                 : tocPosition
     //           ]`.
     attributes = [
-        'chapter-label@'    : 'Chapter', 
+        'chapter-label@'    : 'Chapter',
         'toc@'              : null
     ]
 }
 ```
+
+### brightSPARK Labs Jinja2 Macros
+
+If the configuration field `autoImportMacros` is set to `true` (default) then the following
+macros shall be be available under the `brightsparklabs` namespace:
+
+- `add_default_attributes()` - Adds the standard set of AsciiDoc attributes to the document.
+
+These can be used as follows:
+
+    {{ brightsparklabs.add_default_attributes }}
+
+Macros are defined in:
+
+    src/main/resources/brightsparklabs-macros.j2
 
 ### Asciidoctorj Diagram
 

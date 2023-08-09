@@ -68,14 +68,7 @@ public class DocsPlugin implements Plugin<Project> {
     Map<File, Map<String, Object>> outputFileToContextMap = [:]
 
     /** Header to add to each Jinja2 file prior to rendering. */
-    def templateHeader = """
-        {% macro bsl_add_default_attributes() %}
-        :revnumber: {{ output_file.last_commit.hash }}
-        :revdate: {{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
-        :Author Initials: BSL
-        :toc: left
-        {% endmacro bsl_default_attributes() %}
-        """.stripIndent()
+    def templateHeader = ""
 
     /** Footer to add to each Jinja2 file prior to rendering. */
     def templateFooter = ""
@@ -88,6 +81,10 @@ public class DocsPlugin implements Plugin<Project> {
     public void apply(Project project) {
         // Create plugin configuration object.
         final def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
+
+        if (config.autoImportMacros) {
+            templateHeader += '{% import "brightsparklabs-macros.j2" as brightsparklabs %}\n'
+        }
 
         final File templateHeaderFile = project.file(config.templateHeaderFile)
         if (templateHeaderFile.exists()) {
