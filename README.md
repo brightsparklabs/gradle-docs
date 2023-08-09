@@ -1,7 +1,6 @@
 # gradle-docs
 
-[![Build Status
-master](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=master)](https://travis-ci.org/brightsparklabs/gradle-docs)
+[![Build Status](https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml)
 [![Gradle Plugin](https://img.shields.io/gradle-plugin-portal/v/com.brightsparklabs.gradle.docs)](https://plugins.gradle.org/plugin/com.brightsparklabs.gradle.docs)
 
 Applies brightSPARK Labs standardisation to project documentation.
@@ -9,8 +8,6 @@ Applies brightSPARK Labs standardisation to project documentation.
 **NOTE: This plugin requires JDK 17 or above.**
 
 ## Build
-
-Development Status: [![Build Status develop](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=develop)](https://travis-ci.org/brightsparklabs/gradle-docs)
 
 ```shell
 ./gradlew build
