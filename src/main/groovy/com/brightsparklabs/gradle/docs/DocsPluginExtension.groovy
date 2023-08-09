@@ -16,6 +16,12 @@ class DocsPluginExtension {
     /** YAML file containing context variables used when rendering Jinja2 templates. Default: `src/variables.yaml`. */
     String variablesFile = 'src/variables.yaml'
 
+    /** File header to add to each Jinja2 file prior to rendering. Default: `src/header.j2`. */
+    String templateHeaderFile = 'src/header.j2'
+
+    /** File footer to append to each Jinja2 file prior to Jinja2 rendering. Default: `src/footer.j2`. */
+    String templateFooterFile = 'src/footer.j2'
+
     /** Name of the directory (relative to project root) containing the documents to process. Default: `src/docs/`. */
     String docsDir = 'src/docs'
 

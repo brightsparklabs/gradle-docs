@@ -42,6 +42,7 @@ By default:
   macros](https://docs.asciidoctor.org/asciidoc/latest/macros/images/).
 - Any files ending with `.j2` will first be processed by
   [Jinjava](https://github.com/HubSpot/jinjava) (Java port of Python Jinja2).
+- A number of Jinja2 macros are added by default. See [Default Jinja2 Macros](#default-jinja2-macros)
 
 Running `./gradlew build` will generate PDF and HTML of the documentation.
 
@@ -396,6 +397,12 @@ Alias `bslAsciidoctor`.
 Convert AsciiDoc files to PDF format.
 
 Alias `bslAsciidoctorPdf`.
+
+## Default Jinja2 Macros
+
+The following Jinja2 macros are added by default:
+
+- `bsl_add_default_attributes()` - Adds the standard set of AsciiDoc attributes to the document.
 
 ## Configuration
 

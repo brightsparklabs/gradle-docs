@@ -67,6 +67,19 @@ public class DocsPlugin implements Plugin<Project> {
     /** Output asciidoc files mapped to the context which created them. */
     Map<File, Map<String, Object>> outputFileToContextMap = [:]
 
+    /** Header to add to each Jinja2 file prior to rendering. */
+    def templateHeader = """
+        {% macro bsl_add_default_attributes() %}
+        :revnumber: {{ output_file.last_commit.hash }}
+        :revdate: {{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
+        :Author Initials: BSL
+        :toc: left
+        {% endmacro bsl_default_attributes() %}
+        """.stripIndent()
+
+    /** Footer to add to each Jinja2 file prior to rendering. */
+    def templateFooter = ""
+
     // -------------------------------------------------------------------------
     // IMPLEMENTATION: Plugin<Project>
     // -------------------------------------------------------------------------
@@ -74,9 +87,21 @@ public class DocsPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         // Create plugin configuration object.
-        def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
+        final def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
 
-        File jinjaOutputDir = project.file('build/jinjaProcessed')
+        final File templateHeaderFile = project.file(config.templateHeaderFile)
+        if (templateHeaderFile.exists()) {
+            project.logger.info("Templates will be prepended with header from [${templateHeaderFile}]")
+            templateHeader += templateHeaderFile.text
+        }
+
+        final File templateFooterFile = project.file(config.templateFooterFile)
+        if (templateFooterFile.exists()) {
+            project.logger.info("Templates will be appended with footer from [${templateFooterFile}]")
+            templateFooter += templateFooterFile.text
+        }
+
+        final File jinjaOutputDir = project.file('build/jinjaProcessed')
 
         setupJinjaPreProcessingTasks(project, config, jinjaOutputDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
@@ -187,14 +212,13 @@ public class DocsPlugin implements Plugin<Project> {
 
                 File variablesFile = project.file(config.variablesFile)
                 if (variablesFile.exists()) {
+                    logger.info("Adding global variables to Jinja2 from [${variablesFile}]")
+
                     String yamlText = variablesFile.text
                     context.put('vars', yaml.load(yamlText))
 
                     Map<String, Object> variablesFileLastCommit = getLastCommit(projectRelativePath + config.variablesFile, now)
                     context.put('vars_file_last_commit', variablesFileLastCommit)
-                }
-                else {
-                    logger.warn("Not adding global variables to Jinja2 context as no file found at [${variablesFile}]")
                 }
 
                 // All directory variable files which have been loaded.
@@ -363,7 +387,12 @@ public class DocsPlugin implements Plugin<Project> {
             // Render template to file.
             def originalResourceLocator = jinjava.getResourceLocator()
             jinjava.setResourceLocator(resourceLocator)
-            outputFile.text = jinjava.render(templateFile.text, context)
+            final def inputText = [
+                templateHeader,
+                templateFile.text,
+                templateFooter
+            ].join('\n')
+            outputFile.text = jinjava.render(inputText, context)
             jinjava.setResourceLocator(originalResourceLocator)
         } catch(Exception ex) {
             throw new Exception("Could not process [${templateFile}] - ${ex.message}")
@@ -441,7 +470,7 @@ public class DocsPlugin implements Plugin<Project> {
     /**
      * Returns the variables from the `variables.yaml` file in the template file's directory. Or empty if no variables are present.
      * This method will cache the result in the `loadedDirVariablesFiles` (i.e. will modify it).
-     * 
+     *
      * @param dir The directory the template is from.
      * @param loadedDirVariablesFiles Cache of all the directory variables files previously loaded.
      * @return The dir variables pertaining to the template.
