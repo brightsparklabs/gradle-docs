@@ -31,7 +31,7 @@ plugins {
 
 // Define repositories to ensure plugin dependencies libraries can be resolved.
 repositories {
-    jcenter()
+    mavenCentral()
 }
 ```
 
@@ -50,7 +50,10 @@ Running `./gradlew build` will generate PDF and HTML of the documentation.
 The context provided to the Jinja2 rendering engine has the following format:
 
 ```
+# ------------------------------------------------------------------------------
 # System variables.
+# ------------------------------------------------------------------------------
+
 sys:
   # The `project.name` set in Gradle.
   project_name: <name>
@@ -60,6 +63,9 @@ sys:
 
   # The `project.version` set in Gradle.
   project_version: <version>
+
+  # The `project.projectDir.toPath()` set in Gradle.
+  project_path: <path>
 
   # The time the build was run as ZonedDateTime.
   build_timestamp: <timestamp>
@@ -112,11 +118,19 @@ sys:
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
 
+
+# ------------------------------------------------------------------------------
 # User defined variables from global variables YAML file (default: `src/variables.yaml`).
+# ------------------------------------------------------------------------------
+
 vars:
   ...
 
+
+# ------------------------------------------------------------------------------
 # Details of the last git commit on the global variables YAML file.
+# ------------------------------------------------------------------------------
+
 vars_file_last_commit:
   # The git commit hash (defaults to `unspecified` if file not under git control).
   hash: <hash>
@@ -144,7 +158,11 @@ vars_file_last_commit:
     # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
     iso_offset_safe: <timestamp>
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) Variables pertaining to the CURRENT template being rendered.
+# ------------------------------------------------------------------------------
+
 template_file:
   # The name of the source template file.
   name: <name>
@@ -220,7 +238,11 @@ template_file:
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) Variables pertaining to the CURRENT directory of the template being rendered.
+# ------------------------------------------------------------------------------
+
 template_dir:
   # The relative path (in docs directory) of the directory containing the source template file.
   path: <path>
@@ -229,9 +251,12 @@ template_dir:
   vars:
     ...
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) User defined variables from the CURRENT instance variable file being processed (if
 # present).
-#
+# ------------------------------------------------------------------------------
+
 # Instance variable files must be stored under a directory with the same name as the Jinja2 template
 # file with `.d` appended. Each `.yaml` file under this directory will be rendered against the
 # corresponding Jinja2 template file.
@@ -247,6 +272,7 @@ template_dir:
 #
 #   sops/restart-servers.pdf
 #   sops/purge-logs.pdf
+
 instance_file:
   # The name of the instance variable YAML file.
   name: <name>
@@ -286,7 +312,11 @@ instance_file:
   vars:
     ...
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) Details of the CURRENT file being rendered.
+# ------------------------------------------------------------------------------
+
 output_file:
   # The name of the output file.
   name: <name>
@@ -326,6 +356,15 @@ output_file:
 
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
+
+
+# ------------------------------------------------------------------------------
+# Plugin configuration.
+# ------------------------------------------------------------------------------
+
+config:
+  # The `docsPluginConfig` object as defined in the `Configuration` section below.
+  ...
 ```
 
 The values from the above context can be referenced using standard Jinja2 references. E.g.

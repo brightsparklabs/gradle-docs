@@ -9,6 +9,9 @@ package com.brightsparklabs.gradle.docs
 
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
+import com.hubspot.jinjava.loader.CascadingResourceLocator
+import com.hubspot.jinjava.loader.ClasspathResourceLocator
+import com.hubspot.jinjava.loader.FileLocator
 import groovy.io.FileType
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -120,7 +123,7 @@ public class DocsPlugin implements Plugin<Project> {
             /* Calculate the relative path of this project's directory (i.e. the directory
              * containing this project's `build.gradle` file) relative to the repo root.
              *
-             * Generally the realtive path will simply by blank (i.e. `build.gradle` resides at the
+             * Generally the relative path will simply by blank (i.e. `build.gradle` resides at the
              * root of the repo). However, if the project is part of a Gradle multi-project build,
              * then this will not be the case.
              *
@@ -168,6 +171,7 @@ public class DocsPlugin implements Plugin<Project> {
                     project_name: project.name,
                     project_description: project.description,
                     project_version: project.version,
+                    project_path: project.projectDir.toPath(),
                     build_timestamp: now,
                     build_timestamp_formatted: getFormattedTimestamps(now),
                     repo_last_commit: getLastCommit('.', now),
@@ -178,6 +182,7 @@ public class DocsPlugin implements Plugin<Project> {
                 // ------------------------------------------------------------
                 Map<String, Object> context = [
                     sys: sysContext,
+                    config: config,
                 ]
 
                 File variablesFile = project.file(config.variablesFile)
@@ -350,8 +355,16 @@ public class DocsPlugin implements Plugin<Project> {
             def snapshot = context.getClass().newInstance(context)
             outputFileToContextMap[outputFile] = snapshot
 
+            // Support Jinja2 imports from classpath and relative to template file's directory.
+            Path absoluteDocsDir = context.sys.project_path.resolve(context.config.docsDir)
+            File absoluteTemplateDir = absoluteDocsDir.resolve(context.template_dir.path).toFile()
+            def resourceLocator = new CascadingResourceLocator(new ClasspathResourceLocator(), new FileLocator(absoluteTemplateDir))
+
             // Render template to file.
+            def originalResourceLocator = jinjava.getResourceLocator()
+            jinjava.setResourceLocator(resourceLocator)
             outputFile.text = jinjava.render(templateFile.text, context)
+            jinjava.setResourceLocator(originalResourceLocator)
         } catch(Exception ex) {
             throw new Exception("Could not process [${templateFile}] - ${ex.message}")
         }
