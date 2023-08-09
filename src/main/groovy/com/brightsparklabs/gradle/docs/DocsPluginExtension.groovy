@@ -13,6 +13,24 @@ import java.nio.file.Path
  * Configuration object for the Docs plugin.
  */
 class DocsPluginExtension {
+    /**
+     * Set to `true` to auto import brightSPARK Labs Jinja2 macros under `brightsparklabs`
+     * namespace. Default: `true`.
+     */
+    String autoImportMacros= true
+
+    /**
+     * Path to a header file (relative to project root) which contains a header to prepend to each
+     * Jinja2 file prior to rendering. Default: `src/header.j2`.
+     */
+    String templateHeaderFile = 'src/header.j2'
+
+    /**
+     * Path to a footer file (relative to project root) which contains a footer to append to each
+     * Jinja2 file prior to rendering. Default: `src/footer.j2`.
+     */
+    String templateFooterFile = 'src/footer.j2'
+
     /** YAML file containing context variables used when rendering Jinja2 templates. Default: `src/variables.yaml`. */
     String variablesFile = 'src/variables.yaml'
 

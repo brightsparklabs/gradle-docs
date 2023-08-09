@@ -1,7 +1,6 @@
 # gradle-docs
 
-[![Build Status
-master](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=master)](https://travis-ci.org/brightsparklabs/gradle-docs)
+[![Build Status](https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml)
 [![Gradle Plugin](https://img.shields.io/gradle-plugin-portal/v/com.brightsparklabs.gradle.docs)](https://plugins.gradle.org/plugin/com.brightsparklabs.gradle.docs)
 
 Applies brightSPARK Labs standardisation to project documentation.
@@ -9,8 +8,6 @@ Applies brightSPARK Labs standardisation to project documentation.
 **NOTE: This plugin requires JDK 17 or above.**
 
 ## Build
-
-Development Status: [![Build Status develop](https://api.travis-ci.org/brightsparklabs/gradle-docs.svg?branch=develop)](https://travis-ci.org/brightsparklabs/gradle-docs)
 
 ```shell
 ./gradlew build
@@ -31,7 +28,7 @@ plugins {
 
 // Define repositories to ensure plugin dependencies libraries can be resolved.
 repositories {
-    jcenter()
+    mavenCentral()
 }
 ```
 
@@ -42,6 +39,8 @@ By default:
   macros](https://docs.asciidoctor.org/asciidoc/latest/macros/images/).
 - Any files ending with `.j2` will first be processed by
   [Jinjava](https://github.com/HubSpot/jinjava) (Java port of Python Jinja2).
+- A number of Jinja2 macros are added by default. See
+  [brightSPARK Labs Jinja2 Macros](#brightspark-labs-jinja2-macros).
 
 Running `./gradlew build` will generate PDF and HTML of the documentation.
 
@@ -50,7 +49,10 @@ Running `./gradlew build` will generate PDF and HTML of the documentation.
 The context provided to the Jinja2 rendering engine has the following format:
 
 ```
+# ------------------------------------------------------------------------------
 # System variables.
+# ------------------------------------------------------------------------------
+
 sys:
   # The `project.name` set in Gradle.
   project_name: <name>
@@ -60,6 +62,9 @@ sys:
 
   # The `project.version` set in Gradle.
   project_version: <version>
+
+  # The `project.projectDir.toPath()` set in Gradle.
+  project_path: <path>
 
   # The time the build was run as ZonedDateTime.
   build_timestamp: <timestamp>
@@ -112,11 +117,19 @@ sys:
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
 
+
+# ------------------------------------------------------------------------------
 # User defined variables from global variables YAML file (default: `src/variables.yaml`).
+# ------------------------------------------------------------------------------
+
 vars:
   ...
 
+
+# ------------------------------------------------------------------------------
 # Details of the last git commit on the global variables YAML file.
+# ------------------------------------------------------------------------------
+
 vars_file_last_commit:
   # The git commit hash (defaults to `unspecified` if file not under git control).
   hash: <hash>
@@ -144,7 +157,11 @@ vars_file_last_commit:
     # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
     iso_offset_safe: <timestamp>
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) Variables pertaining to the CURRENT template being rendered.
+# ------------------------------------------------------------------------------
+
 template_file:
   # The name of the source template file.
   name: <name>
@@ -220,7 +237,11 @@ template_file:
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) Variables pertaining to the CURRENT directory of the template being rendered.
+# ------------------------------------------------------------------------------
+
 template_dir:
   # The relative path (in docs directory) of the directory containing the source template file.
   path: <path>
@@ -229,9 +250,12 @@ template_dir:
   vars:
     ...
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) User defined variables from the CURRENT instance variable file being processed (if
 # present).
-#
+# ------------------------------------------------------------------------------
+
 # Instance variable files must be stored under a directory with the same name as the Jinja2 template
 # file with `.d` appended. Each `.yaml` file under this directory will be rendered against the
 # corresponding Jinja2 template file.
@@ -247,6 +271,7 @@ template_dir:
 #
 #   sops/restart-servers.pdf
 #   sops/purge-logs.pdf
+
 instance_file:
   # The name of the instance variable YAML file.
   name: <name>
@@ -286,7 +311,11 @@ instance_file:
   vars:
     ...
 
+
+# ------------------------------------------------------------------------------
 # (Dynamic) Details of the CURRENT file being rendered.
+# ------------------------------------------------------------------------------
+
 output_file:
   # The name of the output file.
   name: <name>
@@ -326,6 +355,15 @@ output_file:
 
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
+
+
+# ------------------------------------------------------------------------------
+# Plugin configuration.
+# ------------------------------------------------------------------------------
+
+config:
+  # The `docsPluginConfig` object as defined in the `Configuration` section below.
+  ...
 ```
 
 The values from the above context can be referenced using standard Jinja2 references. E.g.
@@ -368,6 +406,24 @@ Use the following configuration block to configure the plugin:
 project.version = 'git describe --always --dirty'.execute().text.trim()
 
 docsPluginConfig {
+    /**
+     * Set to `true` to auto import brightSPARK Labs Jinja2 macros under `brightsparklabs`
+     * namespace. Default: `true`.
+     */
+    autoImportMacros = false
+
+    /**
+     * Path to a header file (relative to project root) which contains a header to prepend to each
+     * Jinja2 file prior to rendering. Default: `src/header.j2`.
+     */
+    templateHeaderFile = 'src/my-custom-header.j2'
+
+    /**
+     * Path to a footer file (relative to project root) which contains a footer to append to each
+     * Jinja2 file prior to rendering. Default: `src/footer.j2`.
+     */
+    templateFooterFile = 'src/my-custom-footer.j2'
+
     // YAML file containing context variables used when rendering Jinja2 templates.
     // Default: `src/variables.yaml`.
     variablesFile = 'src/my-variables.yaml'
@@ -392,11 +448,11 @@ docsPluginConfig {
     // Path to the logo file to use as the cover image.
     // Default: `Optional.empty()`.
     logoFile = Optional.of(Path.get("src/custom-logo.svg"))
-  
+
     // The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
     // Default: `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=left]\n`.
     titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=30%,align=right]\n"
-  
+
     // Modifications that will be made to the default asciidoctorj options for rendering the document.
     // Adding a non-existent key will add the option.
     // Adding an existing key will override the pre-existing option.
@@ -404,12 +460,12 @@ docsPluginConfig {
     // Default Options: `["doctype" : 'book']`
     options = ["doctype" : 'article']
 
- 
+
     // Modifications that will be made to the list of attributes that will be used by asciidoctor when rendering the documents.
     // Adding a non-existent key will add the attribute.
     // Adding an existing key will override the pre-existing attribute.
     // Adding an existing key with a value of `null` will remove the attribute.
-  
+
     // Default Attributes: `[
     //           'chapter-label@'       : '',
     //           'icon-set@'            : 'fas',
@@ -421,11 +477,26 @@ docsPluginConfig {
     //           'toc@'                 : tocPosition
     //           ]`.
     attributes = [
-        'chapter-label@'    : 'Chapter', 
+        'chapter-label@'    : 'Chapter',
         'toc@'              : null
     ]
 }
 ```
+
+### brightSPARK Labs Jinja2 Macros
+
+If the configuration field `autoImportMacros` is set to `true` (default) then the following
+macros shall be be available under the `brightsparklabs` namespace:
+
+- `add_default_attributes()` - Adds the standard set of AsciiDoc attributes to the document.
+
+These can be used as follows:
+
+    {{ brightsparklabs.add_default_attributes }}
+
+Macros are defined in:
+
+    src/main/resources/brightsparklabs-macros.j2
 
 ### Asciidoctorj Diagram
 

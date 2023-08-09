@@ -1,0 +1,19 @@
+{#
+ # Macros for inserting text commonly used by brightSPARK Labs.
+ #}
+
+{#
+ # Adds the default Asciidoc attributes:
+ # - `revnumber` set to last commit hash.
+ # - `revdate` set to last commit timestamp as ISO (UTC) with spaces.
+ # - `Author Initials` set to BSL.
+ # - `toc` set to left.
+ # - `toclevels` set to 4.
+ #}
+{% macro add_default_attributes() %}
+:revnumber: {{ output_file.last_commit.hash }}
+:revdate: {{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
+:Author Initials: BSL
+:toc: left
+:toclevels: 4
+{% endmacro bsl_default_attributes() %}
