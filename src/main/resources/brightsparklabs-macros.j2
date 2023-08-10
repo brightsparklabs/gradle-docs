@@ -10,10 +10,10 @@
  # - `toc` set to left.
  # - `toclevels` set to 4.
  #}
-{% macro add_default_attributes() %}
+{%- macro add_default_attributes() -%}
 :revnumber: {{ output_file.last_commit.hash }}
 :revdate: {{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
 :Author Initials: BSL
 :toc: left
 :toclevels: 4
-{% endmacro bsl_default_attributes() %}
+{%- endmacro bsl_default_attributes() -%}
