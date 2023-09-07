@@ -7,7 +7,8 @@
 
 package com.brightsparklabs.gradle.docs
 
-
+import com.google.common.base.Charsets
+import com.google.common.io.Resources
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
 import com.hubspot.jinjava.loader.CascadingResourceLocator
@@ -103,6 +104,7 @@ public class DocsPlugin implements Plugin<Project> {
 
         setupJinjaPreProcessingTasks(project, config, jinjaOutputDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
+        setupWebsiteTasks(project, config, jinjaOutputDir)
     }
 
     // --------------------------------------------------------------------------
@@ -609,6 +611,113 @@ public class DocsPlugin implements Plugin<Project> {
             project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
             project.bslAsciidoctorPdfVersioned.dependsOn project.bslAsciidoctorPdf
             project.build.dependsOn project.bslAsciidoctorPdfVersioned
+        }
+    }
+
+    /**
+     * Adds the website generation tasks.
+     *
+     * @param project Gradle project to add the task to.
+     * @param config Configuration for this plugin.
+     * @param jinjaOutputDir Directory containing rendered Jinja2 templates.
+     */
+    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
+        // Only enable task if `docker buildx` is present since it is used for the generation.
+        def checkBuildxAvailable = "docker buildx".execute()
+        checkBuildxAvailable.waitFor()
+        if (checkBuildxAvailable.exitValue() != 0) {
+            project.logger.lifecycle("Docker buildx not available. Not adding website tasks (which require it)")
+            return
+        }
+
+        def websiteBuildDir = project.file("build/website")
+        def websiteJekyllConfigDir = new File(websiteBuildDir, "jekyllConfig")
+        def websiteOutputDir = new File(websiteBuildDir, "output")
+
+        project.task('cleanWebsite') {
+            group = "brightSPARK Labs - Docs"
+            description = "Cleans the website out of the build directory"
+
+            doLast {
+                project.delete websiteOutputDir
+            }
+        }
+        // Use `afterEvaluate` in case another task add the `clean` task.
+        project.afterEvaluate {
+            if (!project.tasks.findByName('clean')) {
+                project.task('clean') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Cleans the documentation."
+                }
+            }
+            project.clean.dependsOn project.cleanWebsite
+        }
+
+        project.task('generateWebsite') {
+            group = "brightSPARK Labs - Docs"
+            description = "Generates the website from the Asciidoc files"
+
+            doLast {
+                websiteBuildDir.deleteDir()
+                websiteJekyllConfigDir.mkdirs()
+                websiteOutputDir.mkdirs()
+
+                ["_config.yml", "Gemfile"].each { filename ->
+                    def fileUrl = getClass().getResource("/website/${filename}.j2")
+                    def fileContent = Resources.toString(fileUrl, Charsets.UTF_8)
+                    def outputFile = new File(websiteJekyllConfigDir, filename)
+                    outputFile.text = fileContent
+                }
+
+                // Only copy images directory into Dockerfile if it is present. Otherwise the
+                // `docker build` will break since it cannot find the directory to copy.
+                def copyImagesDirLine = "COPY ${config.buildImagesDir} ."
+                if (!project.file(config.buildImagesDir).exists()) {
+                    copyImagesDirLine = "# No images directory, not copying it: " + copyImagesDirLine
+                }
+
+                def dockerFileContent = """
+                FROM jekyll/jekyll:4.2.0 as build-stage
+                COPY ${project.projectDir.relativePath(websiteJekyllConfigDir)} .
+                # Run a build to cache gems.
+                RUN jekyll build
+
+                COPY ${project.projectDir.relativePath(jinjaOutputDir)} .
+                ${copyImagesDirLine}
+
+                # NOTE:
+                #
+                # If you do not specify `-d /tmp/site` it should default to `/srv/jekyll/_site`.
+                # However, this directory does not seem to get created for some reason. I.e. adding
+                # the following to the Dockerfile shows that the directory is not present:
+                #
+                #   RUN ls -al /srv/jekyll
+                #
+                # Explicitly building to `/tmp/site` fixes it.
+                RUN jekyll build -d /tmp/site
+
+                # Base off scratch so output only contains the website files.
+                FROM scratch AS export-stage
+                COPY --from=build-stage /tmp/site .
+                """.stripIndent().trim()
+
+                def dockerFile = new File(websiteBuildDir, "Dockerfile")
+                dockerFile.text = dockerFileContent
+
+                def command= [
+                    "docker",
+                    "build",
+                    "--file",
+                    dockerFile,
+                    "--output",
+                    websiteOutputDir,
+                    project.projectDir
+                ]
+                // Use `project.exec` (rather than "command".execute() as it live prints stderr/stdout.
+                project.exec {
+                    commandLine command
+                }
+            }
         }
     }
 }
