@@ -1,14 +1,14 @@
 # Site settings
 
-title: Documentation
-email: enquire@brightsparklabs.com
+title: {{ config.website.title|default("Documentation") }}
+email: {{ config.website.email|default('') }}
 description: >- # this means to ignore newlines until "baseurl:"
-  Documentation pertaining to the project.
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
+  {{ config.website.description|default(sys.project_description)|default("Documentation for "+ sys.project_name) }}
+baseurl: {{ config.website.baseurl|default('') }} # the subpath of your site, e.g. /blog
+url: {{ config.website.url|default('') }} # the base hostname & protocol for your site, e.g. http://example.com
 
 # Build settings
-theme: just-the-docs
+theme: {{ config.website.theme|default("just-the-docs") }}
   #plugins:
   #  - jekyll-feed
 
