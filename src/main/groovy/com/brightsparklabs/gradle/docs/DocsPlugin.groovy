@@ -702,22 +702,16 @@ public class DocsPlugin implements Plugin<Project> {
 
                 def dockerFileContent = """
                 # -----------------------------------------
-                # Provision the environment.
+                # Build the website.
                 # -----------------------------------------
 
-                FROM jekyll/jekyll:4.2.2 as provision-stage
+                FROM jekyll/jekyll:4.2.2 as build-stage
 
                 RUN apk add graphviz
 
                 COPY ${project.projectDir.relativePath(websiteJekyllConfigDir)} .
                 # Run a build to cache gems.
                 RUN jekyll build
-
-                # -----------------------------------------
-                # Build the website.
-                # -----------------------------------------
-
-                FROM provision-stage as build-stage
 
                 COPY ${project.projectDir.relativePath(jinjaOutputDir)} .
                 ${copyImagesDirLine}
