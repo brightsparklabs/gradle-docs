@@ -695,7 +695,7 @@ public class DocsPlugin implements Plugin<Project> {
 
                 // Only copy images directory into Dockerfile if it is present. Otherwise the
                 // `docker build` will break since it cannot find the directory to copy.
-                def copyImagesDirLine = "COPY ${config.buildImagesDir} ."
+                def copyImagesDirLine = "COPY ${config.buildImagesDir} images"
                 if (!project.file(config.buildImagesDir).exists()) {
                     copyImagesDirLine = "# No images directory, not copying it: " + copyImagesDirLine
                 }

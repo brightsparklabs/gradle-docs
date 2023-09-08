@@ -19,6 +19,7 @@ gem "{{ config.website.theme|default("just-the-docs") }}"
 # If you have any plugins, put them here!
 group :jekyll_plugins do
   #gem "jekyll-feed", "~> 0.12"
+  gem "asciidoctor-diagram", '~> 1.5.4'
   gem "jekyll-asciidoc"
   # Syntax highlighting in code blocks.
   gem 'pygments.rb', '~> 2.1.0'

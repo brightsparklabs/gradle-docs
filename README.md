@@ -564,6 +564,48 @@ the system. E.g.
 - `vega` requires [Vega](https://vega.github.io/vega/) installed.
 - etc.
 
+## Jekyll Website
+
+By default the generated Jekyll website uses the [Just the Docs](https://just-the-docs
+.com/docs/navigation-structure/) theme.
+
+By default all pages will appear as top level pages in the main navigation. If you want to setup
+nested navigation, you will need to set that up explicitly as detailed in the [Navigation
+Structure](https://just-the-docs.com/docs/navigation-structure/) documentation.
+
+A basic example is:
+
+```
+$ tree
+
+src
+└── docs
+    ├── data-model
+    │   ├── component-x-data-model.adoc.j2
+    │   ├── component-x-data-model.adoc.j2.yaml
+    │   └── index.adoc.j2
+    └── index.adoc.j2
+
+$ cat src/docs/index.adoc.j2
+= Data Model
+brightSPARK Labs <enquire@brightsparklabs.com>
+{{ brightsparklabs.add_default_attributes() }}
+:page-has_children: true
+
+$ head src/docs/component-x-data-model.adoc.j2
+= Component X Data Model
+brightSPARK Labs <enquire@brightsparklabs.com>
+{{ brightsparklabs.add_default_attributes() }}
+:page-parent: Data Model
+```
+
+The attributes to note:
+
+* `:page-has_children: true` on the parent page to indicate supports nested pages.
+* `:page-parent: Data Model` on the child page to nest it under the parent page.
+
+**NOTE: Just the Docs only supports a maximum of 3 levels of nesting.**
+
 ## Testing during development
 
 To test plugin changes during development:
