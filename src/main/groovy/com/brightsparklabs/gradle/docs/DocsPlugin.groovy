@@ -7,6 +7,8 @@
 
 package com.brightsparklabs.gradle.docs
 
+import com.google.common.base.Charsets
+import com.google.common.io.Resources
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
 import com.hubspot.jinjava.loader.CascadingResourceLocator
@@ -39,7 +41,7 @@ public class DocsPlugin implements Plugin<Project> {
     /**
      * The default set of options that will be provided to AsciiDoctor for rendering the document.
      */
-    public static final Map<String,Object> DEFAULT_ASCIIDOCTOR_OPTIONS = [ "doctype" : 'book' ]
+    public static final Map<String, Object> DEFAULT_ASCIIDOCTOR_OPTIONS = ["doctype": 'book']
 
     // -------------------------------------------------------------------------
     // INSTANCE VARIABLES
@@ -81,6 +83,7 @@ public class DocsPlugin implements Plugin<Project> {
     public void apply(Project project) {
         // Create plugin configuration object.
         final def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
+        //        project.extensions.docsPluginConfig.extensions.create('website', DocsPluginExtension.WebsiteExtension)
 
         if (config.autoImportMacros) {
             templateHeader += '{% import "brightsparklabs-macros.j2" as brightsparklabs %}\n'
@@ -102,6 +105,7 @@ public class DocsPlugin implements Plugin<Project> {
 
         setupJinjaPreProcessingTasks(project, config, jinjaOutputDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
+        setupWebsiteTasks(project, config, jinjaOutputDir)
     }
 
     // --------------------------------------------------------------------------
@@ -129,7 +133,7 @@ public class DocsPlugin implements Plugin<Project> {
         }
         // Use `afterEvaluate` in case another task add the `clean` task.
         project.afterEvaluate {
-            if (! project.tasks.findByName('clean')) {
+            if (!project.tasks.findByName('clean')) {
                 project.task('clean') {
                     group = "brightSPARK Labs - Docs"
                     description = "Cleans the documentation."
@@ -162,54 +166,43 @@ public class DocsPlugin implements Plugin<Project> {
             doLast {
                 // Copy the entire directory and render files in-place to make
                 // keeping output folder structures intact easier.
-                jinjaOutputDir.delete()
+                project.delete jinjaOutputDir
                 jinjaOutputDir.mkdirs()
                 project.copy {
                     from project.file(config.docsDir)
                     into jinjaOutputDir
                 }
 
-                project.file(config.buildImagesDir).delete()
-                project.file(config.buildImagesDir).mkdirs()
-                project.copy{
+                def buildImagesDir = project.file(config.buildImagesDir)
+                project.delete buildImagesDir
+                buildImagesDir.mkdirs()
+                project.copy {
                     from project.file(config.sourceImagesDir)
-                    into project.file(config.buildImagesDir)
+                    into buildImagesDir
                 }
 
                 // Copy logo into build directory so it can be referenced in Asciidoc.
                 final Path outputFile = Paths.get("${project.projectDir}/${config.buildImagesDir}/${DEFAULT_LOGO_FILENAME}")
                 try {
                     final logoBytes = config.logoFile
-                            .map {path -> path.toFile().readBytes() }
+                            .map { path -> path.toFile().readBytes() }
                             .orElse(getClass().getResourceAsStream("/${DEFAULT_LOGO_FILENAME}").readAllBytes());
-                    outputFile.withOutputStream {stream -> stream.write(logoBytes)}
-                } catch(Exception ex) {
+                    outputFile.withOutputStream { stream -> stream.write(logoBytes) }
+                } catch (Exception ex) {
                     logger.error("Could not copy logo file to build directory", ex)
                     throw ex
                 }
 
                 def now = ZonedDateTime.now()
-                Map<String, Object> sysContext = [
-                    project_name: project.name,
-                    project_description: project.description,
-                    project_version: project.version,
-                    project_path: project.projectDir.toPath(),
-                    build_timestamp: now,
-                    build_timestamp_formatted: getFormattedTimestamps(now),
-                    repo_last_commit: getLastCommit('.', now),
-                ]
+                final Map<String, Object> context = getGlobalContext(project, config, now)
 
                 // ------------------------------------------------------------
                 // ROOT JINJA2 CONTEXT
                 // ------------------------------------------------------------
-                Map<String, Object> context = [
-                    sys: sysContext,
-                    config: config,
-                ]
 
-                File variablesFile = project.file(config.variablesFile)
+                final File variablesFile = project.file(config.variablesFile)
                 if (variablesFile.exists()) {
-                    logger.info("Adding global variables to Jinja2 from [${variablesFile}]")
+                    project.logger.info("Adding global variables to Jinja2 from [${variablesFile}]")
 
                     String yamlText = variablesFile.text
                     context.put('vars', yaml.load(yamlText))
@@ -217,6 +210,7 @@ public class DocsPlugin implements Plugin<Project> {
                     Map<String, Object> variablesFileLastCommit = getLastCommit(projectRelativePath + config.variablesFile, now)
                     context.put('vars_file_last_commit', variablesFileLastCommit)
                 }
+                logger.info("Using `root` context:\n${yaml.dump(context)}")
 
                 // All directory variable files which have been loaded.
                 // Key is the full path to the dir, value is a map of the variables from the dir.
@@ -225,7 +219,7 @@ public class DocsPlugin implements Plugin<Project> {
                 // Process templates.
                 jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
                     // Ignore file if it is not a Jinja2 template
-                    if (! templateFile.name.endsWith(".j2")) {
+                    if (!templateFile.name.endsWith(".j2")) {
                         logger.info("Skipping non-Jinja2 template [${templateFile}]")
                         return
                     }
@@ -239,7 +233,7 @@ public class DocsPlugin implements Plugin<Project> {
                             jinjaOutputDir.toString(),
                             new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
                             ).replaceFirst(config.docsDir + '/?', '')
-                    final def templateDirContext  = [
+                    final def templateDirContext = [
                         path: templateDirRelativePath,
                         vars: templateDirVariables]
                     context.put('template_dir', templateDirContext)
@@ -255,9 +249,9 @@ public class DocsPlugin implements Plugin<Project> {
                     String templateOutputFileName = templateFile.getName().replaceFirst(/\.j2$/, '')
                     File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
                     Map<String, Object> templateFileContext = [
-                        name: templateFile.getName(),
+                        name       : templateFile.getName(),
                         // Relative to docs directory (`toString` to prevent GString in map).
-                        path: "${templateDirRelativePath}/${templateFile.getName()}".toString(),
+                        path       : "${templateDirRelativePath}/${templateFile.getName()}".toString(),
                         last_commit: templateFileLastCommit,
                     ]
                     context.put('template_file', templateFileContext)
@@ -266,9 +260,9 @@ public class DocsPlugin implements Plugin<Project> {
                     // OUTPUT FILE CONTEXT
                     // ------------------------------------------------------------
                     Map<String, Object> outputFileContext = [
-                        name: templateOutputFileName,
+                        name       : templateOutputFileName,
                         // Relative to output directory.
-                        path: templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
+                        path       : templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
                         last_commit: templateFileLastCommit,
                     ]
                     context.put('output_file', outputFileContext)
@@ -298,7 +292,7 @@ public class DocsPlugin implements Plugin<Project> {
                     if (instancesDir.exists() && instancesDir.isDirectory()) {
                         instancesDir.traverse(type: FileType.FILES) { instanceFile ->
                             // Ignore file if it is not a yaml file
-                            if (! instanceFile.name.endsWith(".yaml")) {
+                            if (!instanceFile.name.endsWith(".yaml")) {
                                 logger.info("Skipping non-YAML instance file [${instanceFile}]")
                                 return
                             }
@@ -312,9 +306,9 @@ public class DocsPlugin implements Plugin<Project> {
                             String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
                             File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
                             Map<String, Object> instanceContext = [
-                                name: instanceFile.getName(),
+                                name       : instanceFile.getName(),
                                 // Relative to docs directory.
-                                path: instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
+                                path       : instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
                                 last_commit: instanceFileLastCommit,
                             ]
                             context.put('instance_file', instanceContext)
@@ -329,7 +323,7 @@ public class DocsPlugin implements Plugin<Project> {
 
                             // Cache current last commit so next instance can cleanly compare.
                             def cachedLastCommit = outputFileContext.last_commit
-                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified"){
+                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified") {
                                 outputFileContext.last_commit = instanceFileLastCommit
                             }
 
@@ -344,8 +338,7 @@ public class DocsPlugin implements Plugin<Project> {
                             instanceFile.delete()
                         }
                         instancesDir.delete()
-                    }
-                    else {
+                    } else {
                         // No instances, just process in place.
                         logger.debug("Using context:\n${yaml.dump(context)}")
                         writeTemplateToFile(templateFile, context, templateOutputFile)
@@ -361,6 +354,34 @@ public class DocsPlugin implements Plugin<Project> {
         }
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
     }
+
+    /**
+     * Returns the global context to use for rendering templates.
+     *
+     * @param project Gradle project to add the task to.
+     * @param config Configuration for this plugin.
+     * @param now The current time (passed in for external consistency).
+     * @return The global context to use for rendering templates.
+     */
+    private Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
+        final Map<String, Object> sysContext = [
+            project_name: project.name,
+            project_description: project.description,
+            project_version: project.version,
+            project_path: project.projectDir.toPath(),
+            build_timestamp: now,
+            build_timestamp_formatted: getFormattedTimestamps(now),
+            repo_last_commit: getLastCommit('.', now),
+        ]
+
+        final Map<String, Object> context = [
+            sys   : sysContext,
+            config: config,
+        ]
+
+        return context
+    }
+
 
     /**
      * Renders the supplied template against the supplied context and writes
@@ -391,7 +412,7 @@ public class DocsPlugin implements Plugin<Project> {
             ].join('\n')
             outputFile.text = jinjava.render(inputText, context)
             jinjava.setResourceLocator(originalResourceLocator)
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new Exception("Could not process [${templateFile}] - ${ex.message}")
         }
     }
@@ -411,8 +432,8 @@ public class DocsPlugin implements Plugin<Project> {
      */
     private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
         final Map<String, Object> result = [
-            hash: 'unspecified',
-            timestamp: defaultTimestamp,
+            hash               : 'unspecified',
+            timestamp          : defaultTimestamp,
             timestamp_formatted: getFormattedTimestamps(defaultTimestamp),
         ]
 
@@ -420,7 +441,7 @@ public class DocsPlugin implements Plugin<Project> {
         def checkFileDirtyCommand = 'git diff --shortstat --'.tokenize()
         checkFileDirtyCommand << relativeFilePath
         String checkFileDirty = checkFileDirtyCommand.execute().text.trim()
-        if (! checkFileDirty.isEmpty()) {
+        if (!checkFileDirty.isEmpty()) {
             return result
         }
 
@@ -455,12 +476,12 @@ public class DocsPlugin implements Plugin<Project> {
         def isoUtcString = timestamp.format(DateTimeFormatter.ISO_INSTANT)
         def isoOffsetString = timestamp.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
         return [
-            iso_utc: isoUtcString,
-            iso_utc_space: isoUtcString.replace('T', ' '),
-            iso_utc_safe: isoUtcString.replace(':', ''),
-            iso_offset: isoOffsetString,
+            iso_utc         : isoUtcString,
+            iso_utc_space   : isoUtcString.replace('T', ' '),
+            iso_utc_safe    : isoUtcString.replace(':', ''),
+            iso_offset      : isoOffsetString,
             iso_offset_space: isoOffsetString.replace('T', ' '),
-            iso_offset_safe: isoOffsetString.replace(':', ''),
+            iso_offset_safe : isoOffsetString.replace(':', ''),
         ]
     }
 
@@ -486,8 +507,8 @@ public class DocsPlugin implements Plugin<Project> {
         }
 
         final def yamlText = dirVariablesFile.text
-        final def dirVariables = yaml.<Map<String, Object>>load(yamlText)
-        final def result  =  Optional.of(dirVariables)
+        final def dirVariables = yaml.<Map<String, Object>> load(yamlText)
+        final def result = Optional.of(dirVariables)
         loadedDirVariablesFiles.put(dirName, result)
         // Delete the variables file since we do not want it in the final output dir.
         dirVariablesFile.delete()
@@ -517,7 +538,7 @@ public class DocsPlugin implements Plugin<Project> {
         }
 
         project.task('bslAsciidoctorPdfVersioned') {
-            group = "brightSPARK Labs - Docs Versioned"
+            group = "brightSPARK Labs - Docs"
             description = "Creates PDF files with version string in filename"
 
             doLast {
@@ -554,7 +575,7 @@ public class DocsPlugin implements Plugin<Project> {
 
                 asciidoctorj {
                     // 'book' adds a cover page to the PDF
-                    Map<String,Object> pluginOptions = [:]
+                    Map<String, Object> pluginOptions = [:]
                     pluginOptions.putAll(DEFAULT_ASCIIDOCTOR_OPTIONS)
                     pluginOptions.putAll(config.options)
                     // Allows for the removal of any options for which the user defines a value of null
@@ -578,15 +599,15 @@ public class DocsPlugin implements Plugin<Project> {
                      * - https://docs.asciidoctor.org/asciidoc/latest/attributes/assignment-precedence/
                      */
 
-                    Map<String,Object> pluginAttributes = [
-                        'chapter-label@'        : '',
-                        'icon-set@'             : 'fas',
-                        'icons@'                : 'font',
-                        'imagesdir@'            : project.file(config.buildImagesDir),
-                        'numbered@'             : '',
-                        'source-highlighter@'   : 'coderay',
-                        'title-logo-image@'     : config.titleLogoImage,
-                        'toc@'                  : config.tocPosition
+                    Map<String, Object> pluginAttributes = [
+                        'chapter-label@'     : '',
+                        'icon-set@'          : 'fas',
+                        'icons@'             : 'font',
+                        'imagesdir@'         : project.file(config.buildImagesDir),
+                        'numbered@'          : '',
+                        'source-highlighter@': 'coderay',
+                        'title-logo-image@'  : config.titleLogoImage,
+                        'toc@'               : config.tocPosition
                     ]
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
@@ -595,7 +616,7 @@ public class DocsPlugin implements Plugin<Project> {
                 }
             }
 
-            if (! project.tasks.findByName('build')) {
+            if (!project.tasks.findByName('build')) {
                 project.task('build') {
                     group = "brightSPARK Labs - Docs"
                     description = "Builds the documentation."
@@ -609,6 +630,137 @@ public class DocsPlugin implements Plugin<Project> {
             project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
             project.bslAsciidoctorPdfVersioned.dependsOn project.bslAsciidoctorPdf
             project.build.dependsOn project.bslAsciidoctorPdfVersioned
+        }
+    }
+
+    /**
+     * Adds the website generation tasks.
+     *
+     * @param project Gradle project to add the task to.
+     * @param config Configuration for this plugin.
+     * @param jinjaOutputDir Directory containing rendered Jinja2 templates.
+     */
+    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
+        // Only enable task if `docker buildx` is present since it is used for the generation.
+        def checkBuildxAvailable = "docker buildx".execute()
+        checkBuildxAvailable.waitFor()
+        if (checkBuildxAvailable.exitValue() != 0) {
+            project.logger.lifecycle("Docker buildx not available. Not adding website tasks (which require it)")
+            return
+        }
+
+        def websiteBuildDir = project.file("build/website")
+        def websiteJekyllConfigDir = new File(websiteBuildDir, "jekyllConfig")
+        def websiteOutputDir = new File(websiteBuildDir, "dist")
+
+        project.task('cleanJekyllWebsite') {
+            group = "brightSPARK Labs - Docs"
+            description = "Cleans the Jekyll website out of the build directory"
+
+            doLast {
+                project.delete websiteOutputDir
+            }
+        }
+        // Use `afterEvaluate` in case another task add the `clean` task.
+        project.afterEvaluate {
+            if (!project.tasks.findByName('clean')) {
+                project.task('clean') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Cleans the Jekyll website out of the build directory"
+                }
+            }
+            project.clean.dependsOn project.cleanJekyllWebsite
+        }
+
+        project.task('generateJekyllWebsite') {
+            group = "brightSPARK Labs - Docs"
+            description = "Generates a Jekyll based website from the documents"
+            dependsOn "jinjaPreProcess"
+
+            doLast {
+                websiteBuildDir.deleteDir()
+                websiteOutputDir.mkdirs()
+                websiteJekyllConfigDir.mkdirs()
+
+                // Render the jekyll configuration files.
+                def context = getGlobalContext(project, config)
+                ["_config.yml", "Gemfile"].each { filename ->
+                    def templateUrl = getClass().getResource("/website/${filename}.j2")
+                    def templateText = Resources.toString(templateUrl, Charsets.UTF_8)
+                    def fileContent = jinjava.render(templateText, context)
+
+                    def outputFile = new File(websiteJekyllConfigDir, filename)
+                    outputFile.text = fileContent
+                }
+
+                // Only copy images directory into Dockerfile if it is present. Otherwise the
+                // `docker build` will break since it cannot find the directory to copy.
+                def copyImagesDirLine = "COPY ${config.buildImagesDir} images"
+                if (!project.file(config.buildImagesDir).exists()) {
+                    copyImagesDirLine = "# No images directory, not copying it: " + copyImagesDirLine
+                }
+
+                def dockerFileContent = """
+                # -----------------------------------------
+                # Provision the environment.
+                # -----------------------------------------
+
+                FROM jekyll/jekyll:4.2.2 as provision-stage
+
+                RUN apk add graphviz
+
+                COPY ${project.projectDir.relativePath(websiteJekyllConfigDir)} .
+                # Run a build to cache gems.
+                RUN jekyll build
+
+                # -----------------------------------------
+                # Build the website.
+                # -----------------------------------------
+
+                FROM provision-stage as build-stage
+
+                COPY ${project.projectDir.relativePath(jinjaOutputDir)} .
+                ${copyImagesDirLine}
+
+                # NOTE:
+                #
+                # If you do not specify `-d /tmp/site` it should default to `/srv/jekyll/_site`.
+                # However, this directory does not seem to get created for some reason. I.e. adding
+                # the following to the Dockerfile shows that the directory is not present:
+                #
+                #   RUN ls -al /srv/jekyll
+                #
+                # Explicitly building to `/tmp/site` fixes it.
+                RUN jekyll build -d /tmp/site
+
+                # Base off scratch so output only contains the website files.
+                FROM scratch AS export-stage
+                COPY --from=build-stage /tmp/site .
+                """.stripIndent().trim()
+
+                def dockerFile = new File(websiteBuildDir, "Dockerfile")
+                dockerFile.text = dockerFileContent
+
+                def command= [
+                    "docker",
+                    "build",
+                    "--file",
+                    dockerFile,
+                    "--output",
+                    websiteOutputDir,
+                    project.projectDir
+                ]
+                // Use `project.exec` (rather than "command".execute() as it live prints stderr/stdout.
+                project.exec {
+                    commandLine command
+                }
+                logger.lifecycle("Jekyll based static website created in: `${websiteOutputDir}`")
+            }
+        }
+
+        // Use `afterEvaluate` in case another task add the `clean` task.
+        project.afterEvaluate {
+            project.build.dependsOn project.generateJekyllWebsite
         }
     }
 }

@@ -44,6 +44,27 @@ By default:
 
 Running `./gradlew build` will generate PDF and HTML of the documentation.
 
+If `docker buildx` is present on the system, then in addition to the AsciiDoc HTML backend output,
+it will also generate a Jekyll based static website.
+
+### Tasks
+
+The tasks added by this plugin appear under the `BrightSPARK Labs - Docs tasks` group. E.g.
+
+    $ ./gradlew task | sed -n '/BrightSPARK/,/^$/p's
+
+    BrightSPARK Labs - Docs tasks
+    -----------------------------
+    bslAsciidoctor - Alias for `asciidoctor` task.
+    bslAsciidoctorPdf - Alias for `asciidoctorPdf` task.
+    bslAsciidoctorPdfVersioned - Creates PDF files with version string in filename
+    cleanJekyllWebsite - Cleans the Jekyll website out of the build directory
+    cleanJinjaPreProcess - Cleans the Jinja2 processed documents out of the build directory
+    generateJekyllWebsite - Generates a Jekyll based website from the documents
+    jinjaPreProcess - Performs Jinja2 pre-processing on documents
+
+NOTE: `generateJekyllWebsite` is only available if `docker buildx` is present on the system.
+
 ### Jinja2 Context Map
 
 The context provided to the Jinja2 rendering engine has the following format:
@@ -457,7 +478,7 @@ docsPluginConfig {
     // Adding a non-existent key will add the option.
     // Adding an existing key will override the pre-existing option.
     // Adding an existing key with a value of `null` will remove the option.
-    // Default Options: `["doctype" : 'book']`
+    // Default: `["doctype" : 'book']`
     options = ["doctype" : 'article']
 
 
@@ -465,8 +486,7 @@ docsPluginConfig {
     // Adding a non-existent key will add the attribute.
     // Adding an existing key will override the pre-existing attribute.
     // Adding an existing key with a value of `null` will remove the attribute.
-
-    // Default Attributes: `[
+    // Default: `[
     //           'chapter-label@'       : '',
     //           'icon-set@'            : 'fas',
     //           'icons@'               : 'font',
@@ -480,6 +500,29 @@ docsPluginConfig {
         'chapter-label@'    : 'Chapter',
         'toc@'              : null
     ]
+
+   // Configuration for website generation.
+   // NOTE: Website generation only available when `docker buildx` is present on system.
+
+   // Title to display in the website. Default: `Documentation`.
+   website.title = 'My Documentation'
+
+   // Email to use in the website. Default: `enquire@brightsparklabs.com`.
+   website.email = 'email@me.dev'
+
+   // Description to display in the website. Default: The gradle project description.
+   website.description = 'Documentation explaining how Project X operates.'
+
+   // The subpath of the site if required. Default: ``.
+   website.baseurl = '/projectX/documentation'
+
+   // Domain portion of the site if required. DO NOT include trailing slashes. Default: ``.
+   website.url = 'http://projectX.com'
+
+   // Gem-based Jekyll theme to use when styling the website.
+   // See https://jekyllrb.com/docs/themes/#understanding-gem-based-themes.
+   // Default: `just-the-docs`.
+   website.theme = 'minimal-mistakes-jekyll'
 }
 ```
 
@@ -520,6 +563,48 @@ the system. E.g.
 - `graphviz`/`plantuml` requires [graphviz](https://graphviz.org/) `dot` installed.
 - `vega` requires [Vega](https://vega.github.io/vega/) installed.
 - etc.
+
+## Jekyll Website
+
+By default the generated Jekyll website uses the [Just the Docs](https://just-the-docs
+.com/docs/navigation-structure/) theme.
+
+By default all pages will appear as top level pages in the main navigation. If you want to setup
+nested navigation, you will need to set that up explicitly as detailed in the [Navigation
+Structure](https://just-the-docs.com/docs/navigation-structure/) documentation.
+
+A basic example is:
+
+```
+$ tree
+
+src
+└── docs
+    ├── data-model
+    │   ├── component-x-data-model.adoc.j2
+    │   ├── component-x-data-model.adoc.j2.yaml
+    │   └── index.adoc.j2
+    └── index.adoc.j2
+
+$ cat src/docs/index.adoc.j2
+= Data Model
+brightSPARK Labs <enquire@brightsparklabs.com>
+{{ brightsparklabs.add_default_attributes() }}
+:page-has_children: true
+
+$ head src/docs/component-x-data-model.adoc.j2
+= Component X Data Model
+brightSPARK Labs <enquire@brightsparklabs.com>
+{{ brightsparklabs.add_default_attributes() }}
+:page-parent: Data Model
+```
+
+The attributes to note:
+
+* `:page-has_children: true` on the parent page to indicate supports nested pages.
+* `:page-parent: Data Model` on the child page to nest it under the parent page.
+
+**NOTE: Just the Docs only supports a maximum of 3 levels of nesting.**
 
 ## Testing during development
 
