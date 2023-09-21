@@ -641,16 +641,16 @@ public class DocsPlugin implements Plugin<Project> {
      * @param jinjaOutputDir Directory containing rendered Jinja2 templates.
      */
     private void setupWebsiteTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
-        // Only enable task if `docker buildx` is present since it is used for the generation.
-        try {
-            def checkBuildxAvailable = "docker buildx".execute()
-            checkBuildxAvailable.waitFor()
-            if (checkBuildxAvailable.exitValue() != 0) {
-                project.logger.lifecycle("Docker buildx not available. Not adding website tasks (which require it)")
-                return
-            }
-        } catch (Exception ignored) {
-            project.logger.lifecycle("Could not determine if Docker buildx available. Not adding website tasks (which require it)")
+        // Only enable task if `docker buildx`/`podman buildx` is present since it is used for the generation.
+        def dockerOrPodman
+        if (checkCommandAvailable("dockerx buildx --help")) {
+            project.logger.lifecycle("`docker buildx` available. Adding website generation tasks.")
+            dockerOrPodman = "docker"
+        } else if (checkCommandAvailable("podmanx buildx --help")) {
+            project.logger.lifecycle("`podman buildx` available. Adding website generation tasks.")
+            dockerOrPodman = "podman"
+        } else {
+            project.logger.lifecycle("`docker buildx` / `podman buildx` not available. Not adding website generation tasks (which require it)")
             return
         }
 
@@ -740,8 +740,8 @@ public class DocsPlugin implements Plugin<Project> {
                 def dockerFile = new File(websiteBuildDir, "Dockerfile")
                 dockerFile.text = dockerFileContent
 
-                def command= [
-                    "docker",
+                def command = [
+                    dockerOrPodman,
                     "build",
                     "--file",
                     dockerFile,
@@ -761,5 +761,25 @@ public class DocsPlugin implements Plugin<Project> {
         project.afterEvaluate {
             project.build.dependsOn project.generateJekyllWebsite
         }
+    }
+
+    /**
+     * Checks if the command can be executed successfully (returns exit code zero).
+     * @param command Command to test.
+     * @return `true` if running the command returns exit code 0. `false` otherwise.
+     */
+    private static boolean checkCommandAvailable(String command) {
+        try {
+            def process = command.execute()
+            process.waitFor()
+            if (process.exitValue() == 0) {
+                return true
+            }
+        } catch (Exception ignored) {
+            // If command not available it will generally throw an exception.
+            // Do nothing as we return false by default.
+        }
+
+        return false
     }
 }
