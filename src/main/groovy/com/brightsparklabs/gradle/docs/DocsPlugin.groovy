@@ -642,10 +642,15 @@ public class DocsPlugin implements Plugin<Project> {
      */
     private void setupWebsiteTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
         // Only enable task if `docker buildx` is present since it is used for the generation.
-        def checkBuildxAvailable = "docker buildx".execute()
-        checkBuildxAvailable.waitFor()
-        if (checkBuildxAvailable.exitValue() != 0) {
-            project.logger.lifecycle("Docker buildx not available. Not adding website tasks (which require it)")
+        try {
+            def checkBuildxAvailable = "docker buildx".execute()
+            checkBuildxAvailable.waitFor()
+            if (checkBuildxAvailable.exitValue() != 0) {
+                project.logger.lifecycle("Docker buildx not available. Not adding website tasks (which require it)")
+                return
+            }
+        } catch (Exception ignored) {
+            project.logger.lifecycle("Could not determine if Docker buildx available. Not adding website tasks (which require it)")
             return
         }
 
