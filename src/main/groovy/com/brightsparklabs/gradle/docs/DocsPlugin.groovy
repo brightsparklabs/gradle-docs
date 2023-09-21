@@ -643,10 +643,10 @@ public class DocsPlugin implements Plugin<Project> {
     private void setupWebsiteTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
         // Only enable task if `docker buildx`/`podman buildx` is present since it is used for the generation.
         def dockerOrPodman
-        if (checkCommandAvailable("dockerx buildx --help")) {
+        if (checkCommandAvailable("docker buildx --help")) {
             project.logger.lifecycle("`docker buildx` available. Adding website generation tasks.")
             dockerOrPodman = "docker"
-        } else if (checkCommandAvailable("podmanx buildx --help")) {
+        } else if (checkCommandAvailable("podman buildx --help")) {
             project.logger.lifecycle("`podman buildx` available. Adding website generation tasks.")
             dockerOrPodman = "podman"
         } else {
