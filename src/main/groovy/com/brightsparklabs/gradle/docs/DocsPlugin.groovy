@@ -642,10 +642,15 @@ public class DocsPlugin implements Plugin<Project> {
      */
     private void setupWebsiteTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
         // Only enable task if `docker buildx` is present since it is used for the generation.
-        def checkBuildxAvailable = "docker buildx".execute()
-        checkBuildxAvailable.waitFor()
-        if (checkBuildxAvailable.exitValue() != 0) {
-            project.logger.lifecycle("Docker buildx not available. Not adding website tasks (which require it)")
+        try {
+            def checkBuildxAvailable = "docker buildx".execute()
+            checkBuildxAvailable.waitFor()
+            if (checkBuildxAvailable.exitValue() != 0) {
+                project.logger.lifecycle("Docker buildx not available. Not adding website tasks (which require it)")
+                return
+            }
+        } catch (Exception ignored) {
+            project.logger.lifecycle("Could not determine if Docker buildx available. Not adding website tasks (which require it)")
             return
         }
 
@@ -702,22 +707,16 @@ public class DocsPlugin implements Plugin<Project> {
 
                 def dockerFileContent = """
                 # -----------------------------------------
-                # Provision the environment.
+                # Build the website.
                 # -----------------------------------------
 
-                FROM jekyll/jekyll:4.2.2 as provision-stage
+                FROM jekyll/jekyll:4.2.2 as build-stage
 
                 RUN apk add graphviz
 
                 COPY ${project.projectDir.relativePath(websiteJekyllConfigDir)} .
                 # Run a build to cache gems.
                 RUN jekyll build
-
-                # -----------------------------------------
-                # Build the website.
-                # -----------------------------------------
-
-                FROM provision-stage as build-stage
 
                 COPY ${project.projectDir.relativePath(jinjaOutputDir)} .
                 ${copyImagesDirLine}
