@@ -535,7 +535,7 @@ macros shall be be available under the `brightsparklabs` namespace:
 
 These can be used as follows:
 
-    {{ brightsparklabs.add_default_attributes }}
+    {{ brightsparklabs.add_default_attributes() }}
 
 Macros are defined in:
 
