@@ -606,6 +606,17 @@ The attributes to note:
 
 **NOTE: Just the Docs only supports a maximum of 3 levels of nesting.**
 
+### Website Dockerfile
+
+A Dockerfile for building the website can be generated via the `generateDockerfile` task.
+This can be leveraged to work with the [gradle-docker](https://github.com/brightsparklabs/gradle-docker)
+plugin by doing the following:
+
+* Make the `gradle-docker` plugin's `buildDockerImages` task depend on this plugin's
+  `generateDockerfile` task.
+* Add the path of the generated Dockerfile to the `gradle-docker` plugin's configuration block in
+  the `dockerFileDefinitions` list.
+
 ## Testing during development
 
 To test plugin changes during development:
