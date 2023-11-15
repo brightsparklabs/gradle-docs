@@ -701,7 +701,6 @@ class DocsPlugin implements Plugin<Project> {
 
                 # Build the asciidoctor PDFs as this will also build any images.
                 RUN ./gradlew build --no-daemon
-                COPY build/ ./build
 
                 # Always ensure the images directory exists since it is copied in next stage.
                 RUN mkdir -p "${config.buildImagesDir}"
