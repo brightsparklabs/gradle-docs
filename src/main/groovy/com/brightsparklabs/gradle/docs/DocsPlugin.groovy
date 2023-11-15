@@ -17,6 +17,7 @@ import com.hubspot.jinjava.loader.FileLocator
 import groovy.io.FileType
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.UnknownTaskException
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
@@ -28,7 +29,7 @@ import java.time.format.DateTimeFormatter
 /**
  * The brightSPARK Labs Docs Plugin.
  */
-public class DocsPlugin implements Plugin<Project> {
+class DocsPlugin implements Plugin<Project> {
     // -------------------------------------------------------------------------
     // CONSTANTS
     // -------------------------------------------------------------------------
@@ -86,7 +87,7 @@ public class DocsPlugin implements Plugin<Project> {
     // -------------------------------------------------------------------------
 
     @Override
-    public void apply(Project project) {
+    void apply(Project project) {
         // Create plugin configuration object.
         final def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
         //        project.extensions.docsPluginConfig.extensions.create('website', DocsPluginExtension.WebsiteExtension)
@@ -130,7 +131,7 @@ public class DocsPlugin implements Plugin<Project> {
      * @param jinjaOutputDir Directory to output rendered Jinja2 templates.
      */
     private void setupJinjaPreProcessingTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
-        project.task('cleanJinjaPreProcess') {
+        project.tasks.register('cleanJinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jinja2 processed documents out of the build directory"
 
@@ -143,16 +144,19 @@ public class DocsPlugin implements Plugin<Project> {
         }
         // Use `afterEvaluate` in case another task add the `clean` task.
         project.afterEvaluate {
-            if (!project.tasks.findByName('clean')) {
-                project.task('clean') {
+            try {
+                project.tasks.named('clean')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('clean') {
                     group = "brightSPARK Labs - Docs"
                     description = "Cleans the documentation."
                 }
             }
-            project.clean.dependsOn project.cleanJinjaPreProcess
+            project.tasks.named('clean'){ dependsOn 'cleanJinjaPreProcess'}
         }
 
-        project.task('jinjaPreProcess') {
+        project.tasks.register('jinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Performs Jinja2 pre-processing on documents"
 
@@ -375,7 +379,7 @@ public class DocsPlugin implements Plugin<Project> {
      * @param now The current time (passed in for external consistency).
      * @return The global context to use for rendering templates.
      */
-    private Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
+    private static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
         final Map<String, Object> sysContext = [
             project_name: project.name,
             project_description: project.description,
@@ -406,7 +410,7 @@ public class DocsPlugin implements Plugin<Project> {
     private void writeTemplateToFile(File templateFile, Map<String, Object> context, File outputFile) {
         try {
             // Create an snapshot of the context since it is mutable.
-            def snapshot = context.getClass().newInstance(context)
+            def snapshot = context.getClass().<Map<String, Object>>newInstance(context)
             outputFileToContextMap[outputFile] = snapshot
 
             // Support Jinja2 imports from classpath and relative to template file's directory.
@@ -442,7 +446,7 @@ public class DocsPlugin implements Plugin<Project> {
      *         ]
      *         </pre>
      */
-    private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
+    private static Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
         final Map<String, Object> result = [
             hash               : 'unspecified',
             timestamp          : defaultTimestamp,
@@ -539,17 +543,17 @@ public class DocsPlugin implements Plugin<Project> {
         project.plugins.apply 'org.asciidoctor.jvm.pdf'
 
         // creating aliases nested under our BSL group for clarity
-        project.task('bslAsciidoctor') {
+        project.tasks.register('bslAsciidoctor') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctor` task."
         }
 
-        project.task('bslAsciidoctorPdf') {
+        project.tasks.register('bslAsciidoctorPdf') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctorPdf` task."
         }
 
-        project.task('bslAsciidoctorPdfVersioned') {
+        project.tasks.register('bslAsciidoctorPdfVersioned') {
             group = "brightSPARK Labs - Docs"
             description = "Creates PDF files with version string in filename"
 
@@ -628,20 +632,23 @@ public class DocsPlugin implements Plugin<Project> {
                 }
             }
 
-            if (!project.tasks.findByName('build')) {
-                project.task('build') {
+            try {
+                project.tasks.named('build')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('build') {
                     group = "brightSPARK Labs - Docs"
                     description = "Builds the documentation."
                 }
             }
 
-            project.asciidoctor.dependsOn project.jinjaPreProcess
-            project.asciidoctorPdf.dependsOn project.jinjaPreProcess
-            project.bslAsciidoctor.dependsOn project.asciidoctor
-            project.asciidoctorPdf.dependsOn project.asciidoctor
-            project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
-            project.bslAsciidoctorPdfVersioned.dependsOn project.bslAsciidoctorPdf
-            project.build.dependsOn project.bslAsciidoctorPdfVersioned
+            project.tasks.named('asciidoctor') {dependsOn 'jinjaPreProcess' }
+            project.tasks.named('asciidoctorPdf') {dependsOn 'jinjaPreProcess' }
+            project.tasks.named('bslAsciidoctor') {dependsOn 'asciidoctor' }
+            project.tasks.named('asciidoctorPdf') {dependsOn 'asciidoctor' }
+            project.tasks.named('bslAsciidoctorPdf') {dependsOn 'asciidoctorPdf' }
+            project.tasks.named('bslAsciidoctorPdfVersioned') {dependsOn 'bslAsciidoctorPdf' }
+            project.tasks.named('build') {dependsOn 'bslAsciidoctorPdfVersioned' }
         }
     }
 
@@ -776,7 +783,7 @@ public class DocsPlugin implements Plugin<Project> {
                 def dockerFile = new File(outputDir, "Dockerfile")
                 dockerFile.text = dockerFileContent
 
-                project.logger.lifecycle("`Dockerfile` generated at `${dockerfile.getAbsolutePath()}`.")
+                project.logger.lifecycle("Dockerfile generated at `${dockerfile.getAbsolutePath()}`.")
             }
         }
 
@@ -803,7 +810,7 @@ public class DocsPlugin implements Plugin<Project> {
             return
         }
 
-        project.task('cleanJekyllWebsite') {
+        project.tasks.register('cleanJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jekyll website out of the build directory"
 
@@ -811,15 +818,22 @@ public class DocsPlugin implements Plugin<Project> {
                 project.delete outputDir
             }
         }
+
         // Use `afterEvaluate` in case another task add the `clean` task.
+
+
         project.afterEvaluate {
-            if (!project.tasks.findByName('clean')) {
-                project.task('clean') {
+            try {
+                project.tasks.named('clean')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('clean') {
                     group = "brightSPARK Labs - Docs"
                     description = "Cleans the Jekyll website out of the build directory"
                 }
             }
-            project.clean.dependsOn project.cleanJekyllWebsite
+
+            project.tasks.named('clean'){ dependsOn 'cleanJekyllWebsite'}
         }
 
         project.tasks.register('generateJekyllWebsite') {
