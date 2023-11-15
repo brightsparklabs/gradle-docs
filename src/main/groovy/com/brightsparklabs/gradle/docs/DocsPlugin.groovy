@@ -17,6 +17,7 @@ import com.hubspot.jinjava.loader.FileLocator
 import groovy.io.FileType
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.UnknownTaskException
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
@@ -28,7 +29,7 @@ import java.time.format.DateTimeFormatter
 /**
  * The brightSPARK Labs Docs Plugin.
  */
-public class DocsPlugin implements Plugin<Project> {
+class DocsPlugin implements Plugin<Project> {
     // -------------------------------------------------------------------------
     // CONSTANTS
     // -------------------------------------------------------------------------
@@ -38,10 +39,16 @@ public class DocsPlugin implements Plugin<Project> {
      * destination file name when copying client supplied logos.
      */
     public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
+
     /**
      * The default set of options that will be provided to AsciiDoctor for rendering the document.
      */
     public static final Map<String, Object> DEFAULT_ASCIIDOCTOR_OPTIONS = ["doctype": 'book']
+
+    /**
+     * The name of the task which generates the Dockerfile for hosting the documentation as a static website.
+     */
+    private static final String GENERATE_DOCKERFILE_TASK_NAME = 'generateDockerfile'
 
     // -------------------------------------------------------------------------
     // INSTANCE VARIABLES
@@ -80,7 +87,7 @@ public class DocsPlugin implements Plugin<Project> {
     // -------------------------------------------------------------------------
 
     @Override
-    public void apply(Project project) {
+    void apply(Project project) {
         // Create plugin configuration object.
         final def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
         //        project.extensions.docsPluginConfig.extensions.create('website', DocsPluginExtension.WebsiteExtension)
@@ -101,11 +108,15 @@ public class DocsPlugin implements Plugin<Project> {
             templateFooter += templateFooterFile.text
         }
 
-        final File jinjaOutputDir = project.file('build/jinjaProcessed')
+        final File baseOutputDirectory = project.file('build/brightsparklabs/docs')
+        final File jinjaOutputDir = new File(baseOutputDirectory, 'jinjaProcessed')
+        final File dockerfileOutputDir = new File(baseOutputDirectory, 'dockerfile')
+        final File websiteOutputDir = new File(baseOutputDirectory, 'website')
 
         setupJinjaPreProcessingTasks(project, config, jinjaOutputDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
-        setupWebsiteTasks(project, config, jinjaOutputDir)
+        setupDockerFileTask(project, config, dockerfileOutputDir)
+        setupWebsiteTasks(project, config, websiteOutputDir)
     }
 
     // --------------------------------------------------------------------------
@@ -120,7 +131,7 @@ public class DocsPlugin implements Plugin<Project> {
      * @param jinjaOutputDir Directory to output rendered Jinja2 templates.
      */
     private void setupJinjaPreProcessingTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
-        project.task('cleanJinjaPreProcess') {
+        project.tasks.register('cleanJinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jinja2 processed documents out of the build directory"
 
@@ -133,16 +144,19 @@ public class DocsPlugin implements Plugin<Project> {
         }
         // Use `afterEvaluate` in case another task add the `clean` task.
         project.afterEvaluate {
-            if (!project.tasks.findByName('clean')) {
-                project.task('clean') {
+            try {
+                project.tasks.named('clean')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('clean') {
                     group = "brightSPARK Labs - Docs"
                     description = "Cleans the documentation."
                 }
             }
-            project.clean.dependsOn project.cleanJinjaPreProcess
+            project.tasks.named('clean'){ dependsOn 'cleanJinjaPreProcess'}
         }
 
-        project.task('jinjaPreProcess') {
+        project.tasks.register('jinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Performs Jinja2 pre-processing on documents"
 
@@ -350,6 +364,8 @@ public class DocsPlugin implements Plugin<Project> {
                     context.remove('output_file')
                     templateFile.delete()
                 }
+
+                project.logger.lifecycle("Template files rendered to `${jinjaOutputDir.getAbsolutePath()}`.")
             }
         }
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
@@ -363,7 +379,7 @@ public class DocsPlugin implements Plugin<Project> {
      * @param now The current time (passed in for external consistency).
      * @return The global context to use for rendering templates.
      */
-    private Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
+    private static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
         final Map<String, Object> sysContext = [
             project_name: project.name,
             project_description: project.description,
@@ -394,7 +410,7 @@ public class DocsPlugin implements Plugin<Project> {
     private void writeTemplateToFile(File templateFile, Map<String, Object> context, File outputFile) {
         try {
             // Create an snapshot of the context since it is mutable.
-            def snapshot = context.getClass().newInstance(context)
+            def snapshot = context.getClass().<Map<String, Object>>newInstance(context)
             outputFileToContextMap[outputFile] = snapshot
 
             // Support Jinja2 imports from classpath and relative to template file's directory.
@@ -430,7 +446,7 @@ public class DocsPlugin implements Plugin<Project> {
      *         ]
      *         </pre>
      */
-    private Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
+    private static Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
         final Map<String, Object> result = [
             hash               : 'unspecified',
             timestamp          : defaultTimestamp,
@@ -527,17 +543,17 @@ public class DocsPlugin implements Plugin<Project> {
         project.plugins.apply 'org.asciidoctor.jvm.pdf'
 
         // creating aliases nested under our BSL group for clarity
-        project.task('bslAsciidoctor') {
+        project.tasks.register('bslAsciidoctor') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctor` task."
         }
 
-        project.task('bslAsciidoctorPdf') {
+        project.tasks.register('bslAsciidoctorPdf') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctorPdf` task."
         }
 
-        project.task('bslAsciidoctorPdfVersioned') {
+        project.tasks.register('bslAsciidoctorPdfVersioned') {
             group = "brightSPARK Labs - Docs"
             description = "Creates PDF files with version string in filename"
 
@@ -616,21 +632,162 @@ public class DocsPlugin implements Plugin<Project> {
                 }
             }
 
-            if (!project.tasks.findByName('build')) {
-                project.task('build') {
+            try {
+                project.tasks.named('build')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('build') {
                     group = "brightSPARK Labs - Docs"
                     description = "Builds the documentation."
                 }
             }
 
-            project.asciidoctor.dependsOn project.jinjaPreProcess
-            project.asciidoctorPdf.dependsOn project.jinjaPreProcess
-            project.bslAsciidoctor.dependsOn project.asciidoctor
-            project.asciidoctorPdf.dependsOn project.asciidoctor
-            project.bslAsciidoctorPdf.dependsOn project.asciidoctorPdf
-            project.bslAsciidoctorPdfVersioned.dependsOn project.bslAsciidoctorPdf
-            project.build.dependsOn project.bslAsciidoctorPdfVersioned
+            project.tasks.named('asciidoctor') {dependsOn 'jinjaPreProcess' }
+            project.tasks.named('asciidoctorPdf') {dependsOn 'jinjaPreProcess' }
+            project.tasks.named('bslAsciidoctor') {dependsOn 'asciidoctor' }
+            project.tasks.named('asciidoctorPdf') {dependsOn 'asciidoctor' }
+            project.tasks.named('bslAsciidoctorPdf') {dependsOn 'asciidoctorPdf' }
+            project.tasks.named('bslAsciidoctorPdfVersioned') {dependsOn 'bslAsciidoctorPdf' }
+            project.tasks.named('build') {dependsOn 'bslAsciidoctorPdfVersioned' }
         }
+    }
+
+    /**
+     * Adds the Dockerfile generation tasks.
+     *
+     * @param project Gradle project to add the task to.
+     * @param config Configuration for this plugin.
+     * @param outputDir Directory to store the generated Dockerfile to.
+     */
+    private void setupDockerFileTask(Project project, DocsPluginExtension config, File outputDir) {
+        project.tasks.register(GENERATE_DOCKERFILE_TASK_NAME) {
+            group = "brightSPARK Labs - Docs"
+            description = "Generates a Dockerfile for hosting the documentation as a static website."
+
+            def dockerfile = new File(outputDir, 'Dockerfile')
+            outputs.file(dockerfile)
+
+            doLast {
+                project.delete outputDir
+                outputDir.mkdirs()
+
+                // Render the jekyll configuration files.
+                def context = getGlobalContext(project, config)
+                def jekyllConfigFiles = ["_config.yml", "Gemfile"].collect { filename ->
+                    def templateUrl = getClass().getResource("/website/${filename}.j2")
+                    def templateText = Resources.toString(templateUrl, Charsets.UTF_8)
+                    def fileContent = jinjava.render(templateText, context)
+
+                    return [
+                        filename: filename,
+                        content: fileContent
+                    ]
+                }
+
+                def dockerFileContent = """
+                # -----------------------------------------
+                # BUILD STAGE: GENERATE ASCIIDOC/PDF FILES
+                # -----------------------------------------
+
+                FROM adoptopenjdk/openjdk11:jdk-11.0.8_10-alpine-slim as builder-java
+                RUN apk add git
+
+                # Get gradle distribution (done separately so Docker caches layer)
+                WORKDIR /src
+                COPY build.gradle settings.gradle gradlew ./
+                COPY gradle ./gradle
+                RUN ./gradlew build || return 0 # force sucess as build is expected to fail due to no sources
+
+                # Build the asciidoctor PDFs as this will also build any images.
+                RUN ./gradlew build --no-daemon
+                COPY build/ ./build
+
+                # Always ensure the images directory exists since it is copied in next stage.
+                RUN mkdir -p "${config.buildImagesDir}"
+
+                # -----------------------------------------
+                # BUILD STAGE: GENERATE WEBSITE
+                # -----------------------------------------
+
+                FROM jekyll/jekyll:4.2.2 as builder-jekyll
+
+                RUN apk add graphviz
+
+                # Run a build to cache gems.
+                RUN jekyll build
+                """.stripIndent().trim()
+
+                // Copy the Jekyll configuration files into the Dockerfile using a heredoc.
+                // This ensures the Dockerfile is standalone.
+                jekyllConfigFiles.each {
+                    // NOTE: Not using a multiline string to avoid issues with indentation.
+                    def copyInstruction = "\nCOPY <<EOF ${it.filename}\n" + it.content + "\nEOF\n"
+                    dockerFileContent +=  copyInstruction
+                }
+
+                dockerFileContent += """
+                COPY --from=builder-java /src/build/brightsparklabs/docs/jinjaProcessed .
+                COPY --from=builder-java "/src/${config.buildImagesDir}" images
+
+                # NOTE:
+                #
+                # If you do not specify `-d /tmp/site` it should default to `/srv/jekyll/_site`.
+                # However, this directory does not seem to get created for some reason. I.e. adding
+                # the following to the Dockerfile shows that the directory is not present:
+                #
+                #   RUN ls -al /srv/jekyll
+                #
+                # Explicitly building to `/tmp/site` fixes it.
+                RUN jekyll build -d /tmp/site
+
+                # NOTE:
+                #
+                # Need to chown it to root otherwise `jenkins` owns it, and the CI server fails next
+                # stage. See https://circleci.com/docs/2.0/high-uid-error/
+                RUN chown -R root:root /tmp/site
+
+                # -----------------------------------------
+                # EXPORT STAGE
+                # -----------------------------------------
+
+                # The image produced by this stage can be used if the files are to be exported to
+                # the file system via: `docker build ... --target export-stage --output output/`
+
+                # Base off scratch so output only contains the website files.
+                FROM scratch AS export-stage
+                COPY --from=builder-jekyll /tmp/site .
+
+                # -----------------------------------------
+                # FINAL STAGE
+                # -----------------------------------------
+
+                # The image produced by this stage hosts the website.
+
+                FROM kyma/docker-nginx:latest
+                MAINTAINER brightSPARK Labs <enquire@brightsparklabs.com>
+                ARG BUILD_DATE=UNKNOWN
+                ARG VCS_REF=UNKNOWN
+                LABEL org.label-schema.name="nswcc-documentation" \
+                      org.label-schema.description="Image used by NSWCC to host documentation as a static website" \
+                      org.label-schema.vendor="brightSPARK Labs" \
+                      org.label-schema.schema-version="1.0.0-rc1" \
+                      org.label-schema.vcs-url="https://bitbucket.org/brightsparklabs/nswcc-documentation" \
+                      org.label-schema.vcs-ref=\${VCS_REF} \
+                      org.label-schema.build-date=\${BUILD_DATE}
+                ENV META_BUILD_DATE=\${BUILD_DATE} \
+                    META_VCS_REF=\${VCS_REF}
+
+                COPY --from=builder-jekyll /tmp/site /var/www
+                """.stripIndent().trim()
+
+                def dockerFile = new File(outputDir, "Dockerfile")
+                dockerFile.text = dockerFileContent
+
+                project.logger.lifecycle("Dockerfile generated at `${dockerfile.getAbsolutePath()}`.")
+            }
+        }
+
+        project.tasks.named('build') { dependsOn(GENERATE_DOCKERFILE_TASK_NAME) }
     }
 
     /**
@@ -638,9 +795,8 @@ public class DocsPlugin implements Plugin<Project> {
      *
      * @param project Gradle project to add the task to.
      * @param config Configuration for this plugin.
-     * @param jinjaOutputDir Directory containing rendered Jinja2 templates.
      */
-    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
+    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File outputDir) {
         // Only enable task if `docker buildx`/`podman buildx` is present since it is used for the generation.
         def dockerOrPodman
         if (checkCommandAvailable("docker buildx --help")) {
@@ -654,112 +810,67 @@ public class DocsPlugin implements Plugin<Project> {
             return
         }
 
-        def websiteBuildDir = project.file("build/website")
-        def websiteJekyllConfigDir = new File(websiteBuildDir, "jekyllConfig")
-        def websiteOutputDir = new File(websiteBuildDir, "dist")
-
-        project.task('cleanJekyllWebsite') {
+        project.tasks.register('cleanJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jekyll website out of the build directory"
 
             doLast {
-                project.delete websiteOutputDir
+                project.delete outputDir
             }
         }
+
         // Use `afterEvaluate` in case another task add the `clean` task.
+
+
         project.afterEvaluate {
-            if (!project.tasks.findByName('clean')) {
-                project.task('clean') {
+            try {
+                project.tasks.named('clean')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('clean') {
                     group = "brightSPARK Labs - Docs"
                     description = "Cleans the Jekyll website out of the build directory"
                 }
             }
-            project.clean.dependsOn project.cleanJekyllWebsite
+
+            project.tasks.named('clean'){ dependsOn 'cleanJekyllWebsite'}
         }
 
-        project.task('generateJekyllWebsite') {
+        project.tasks.register('generateJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
-            description = "Generates a Jekyll based website from the documents"
-            dependsOn "jinjaPreProcess"
+            description = "Generates a Jekyll based website from the documents using docker"
+            dependsOn(GENERATE_DOCKERFILE_TASK_NAME)
+            inputs.files(project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).get().outputs.files)
+            outputs.dir(outputDir)
 
             doLast {
-                websiteBuildDir.deleteDir()
-                websiteOutputDir.mkdirs()
-                websiteJekyllConfigDir.mkdirs()
+                outputDir.deleteDir()
+                outputDir.mkdirs()
 
-                // Render the jekyll configuration files.
-                def context = getGlobalContext(project, config)
-                ["_config.yml", "Gemfile"].each { filename ->
-                    def templateUrl = getClass().getResource("/website/${filename}.j2")
-                    def templateText = Resources.toString(templateUrl, Charsets.UTF_8)
-                    def fileContent = jinjava.render(templateText, context)
-
-                    def outputFile = new File(websiteJekyllConfigDir, filename)
-                    outputFile.text = fileContent
-                }
-
-                // Only copy images directory into Dockerfile if it is present. Otherwise the
-                // `docker build` will break since it cannot find the directory to copy.
-                def copyImagesDirLine = "COPY ${config.buildImagesDir} images"
-                if (!project.file(config.buildImagesDir).exists()) {
-                    copyImagesDirLine = "# No images directory, not copying it: " + copyImagesDirLine
-                }
-
-                def dockerFileContent = """
-                # -----------------------------------------
-                # Build the website.
-                # -----------------------------------------
-
-                FROM jekyll/jekyll:4.2.2 as build-stage
-
-                RUN apk add graphviz
-
-                COPY ${project.projectDir.relativePath(websiteJekyllConfigDir)} .
-                # Run a build to cache gems.
-                RUN jekyll build
-
-                COPY ${project.projectDir.relativePath(jinjaOutputDir)} .
-                ${copyImagesDirLine}
-
-                # NOTE:
-                #
-                # If you do not specify `-d /tmp/site` it should default to `/srv/jekyll/_site`.
-                # However, this directory does not seem to get created for some reason. I.e. adding
-                # the following to the Dockerfile shows that the directory is not present:
-                #
-                #   RUN ls -al /srv/jekyll
-                #
-                # Explicitly building to `/tmp/site` fixes it.
-                RUN jekyll build -d /tmp/site
-
-                # Base off scratch so output only contains the website files.
-                FROM scratch AS export-stage
-                COPY --from=build-stage /tmp/site .
-                """.stripIndent().trim()
-
-                def dockerFile = new File(websiteBuildDir, "Dockerfile")
-                dockerFile.text = dockerFileContent
+                /*
+                 * The outputs from the `generateDockerFile` task only contain one file, the
+                 * Dockerfile. It is the first item.
+                 */
+                def dockerFile = inputs.files[0]
 
                 def command = [
                     dockerOrPodman,
                     "build",
                     "--file",
                     dockerFile,
+                    // Specify the stage which contains only the built artifact.
+                    "--target=export-stage",
+                    // Write the files from that stage to the output directory.
                     "--output",
-                    websiteOutputDir,
+                    outputDir,
                     project.projectDir
                 ]
                 // Use `project.exec` (rather than "command".execute() as it live prints stderr/stdout.
                 project.exec {
                     commandLine command
                 }
-                logger.lifecycle("Jekyll based static website created in: `${websiteOutputDir}`")
+                logger.lifecycle("Jekyll based static website created in: `${outputDir}`")
             }
-        }
-
-        // Use `afterEvaluate` in case another task add the `clean` task.
-        project.afterEvaluate {
-            project.build.dependsOn project.generateJekyllWebsite
         }
     }
 
