@@ -535,7 +535,7 @@ macros shall be be available under the `brightsparklabs` namespace:
 
 These can be used as follows:
 
-    {{ brightsparklabs.add_default_attributes }}
+    {{ brightsparklabs.add_default_attributes() }}
 
 Macros are defined in:
 
@@ -605,6 +605,17 @@ The attributes to note:
 * `:page-parent: Data Model` on the child page to nest it under the parent page.
 
 **NOTE: Just the Docs only supports a maximum of 3 levels of nesting.**
+
+### Website Dockerfile
+
+A Dockerfile for building the website can be generated via the `generateDockerfile` task.
+This can be leveraged to work with the [gradle-docker](https://github.com/brightsparklabs/gradle-docker)
+plugin by doing the following:
+
+* Make the `gradle-docker` plugin's `buildDockerImages` task depend on this plugin's
+  `generateDockerfile` task.
+* Add the path of the generated Dockerfile to the `gradle-docker` plugin's configuration block in
+  the `dockerFileDefinitions` list.
 
 ## Testing during development
 
