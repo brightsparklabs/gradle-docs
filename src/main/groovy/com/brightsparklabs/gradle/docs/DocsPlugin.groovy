@@ -689,7 +689,8 @@ class DocsPlugin implements Plugin<Project> {
                 # BUILD STAGE: GENERATE ASCIIDOC/PDF FILES
                 # -----------------------------------------
 
-                FROM adoptopenjdk/openjdk11:jdk-11.0.8_10-alpine-slim as builder-java
+                FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
+
                 RUN apk add git
 
                 # Get gradle distribution (done separately so Docker caches layer)
