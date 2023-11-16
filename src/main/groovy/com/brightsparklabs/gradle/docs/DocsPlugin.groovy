@@ -605,7 +605,8 @@ class DocsPlugin implements Plugin<Project> {
                      * 'icon-set':          -> use Font Awesome icon set
                      * 'icons'': 'font'     -> use Font Awesome for admonitions
                      * 'imagesdir'':        -> directory to resolve images from
-                     * 'numbered'           -> numbers all headings
+                     * 'sectnums':          -> numbers headings
+                     * 'sectnumlevels':     -> numbers all headings levels (1-5)
                      * 'source-highlighter' -> add syntax highlighting to source blocks
                      * 'title-logo-image'   -> defines the configuration of the image for pdf cover pages
                      * 'toc': 'left'        -> places TOC on left hand site in HTML pages
@@ -620,7 +621,8 @@ class DocsPlugin implements Plugin<Project> {
                         'icon-set@'          : 'fas',
                         'icons@'             : 'font',
                         'imagesdir@'         : project.file(config.buildImagesDir),
-                        'numbered@'          : '',
+                        'sectnums@'          : '',
+                        'sectnumlevels@'     : '5',
                         'source-highlighter@': 'coderay',
                         'title-logo-image@'  : config.titleLogoImage,
                         'toc@'               : config.tocPosition

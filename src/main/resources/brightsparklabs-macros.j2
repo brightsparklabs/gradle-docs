@@ -9,6 +9,8 @@
  # - `Author Initials` set to BSL.
  # - `toc` set to left.
  # - `toclevels` set to 4.
+ # - `sectnums` enabled.
+ # - `sectnumlevels` set to 5.
  #}
 {%- macro add_default_attributes() -%}
 :revnumber: {{ output_file.last_commit.hash }}
@@ -16,4 +18,6 @@
 :Author Initials: BSL
 :toc: left
 :toclevels: 4
+:sectnums:
+:sectnumlevels: 5
 {%- endmacro bsl_default_attributes() -%}
