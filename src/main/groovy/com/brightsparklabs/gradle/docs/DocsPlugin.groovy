@@ -693,9 +693,9 @@ class DocsPlugin implements Plugin<Project> {
 
                 FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
 
-                RUN apk add \
+                RUN apk add \\
                   # Allow gradle-docs plugin to read git details on files.
-                  git \
+                  git \\
                   # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
                   graphviz
 
@@ -708,8 +708,8 @@ class DocsPlugin implements Plugin<Project> {
                 COPY .git ./.git
                 COPY src ./src
 
-                # Build the asciidoctor PDFs.
-                RUN ./gradlew build --no-daemon
+                # Build the asciidoc files.
+                RUN ./gradlew jinjaPreProcess --no-daemon
 
                 # Always ensure the images directory exists since it is copied in next stage.
                 RUN mkdir -p "${config.buildImagesDir}"
