@@ -693,7 +693,11 @@ class DocsPlugin implements Plugin<Project> {
 
                 FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
 
-                RUN apk add git
+                RUN apk add \
+                  # Allow gradle-docs plugin to read git details on files.
+                  git \
+                  # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
+                  graphviz
 
                 # Get gradle distribution (done separately so Docker caches layer)
                 WORKDIR /src
@@ -701,7 +705,10 @@ class DocsPlugin implements Plugin<Project> {
                 COPY gradle ./gradle
                 RUN ./gradlew build || return 0 # force sucess as build is expected to fail due to no sources
 
-                # Build the asciidoctor PDFs as this will also build any images.
+                COPY .git ./.git
+                COPY src ./src
+
+                # Build the asciidoctor PDFs.
                 RUN ./gradlew build --no-daemon
 
                 # Always ensure the images directory exists since it is copied in next stage.
@@ -713,10 +720,9 @@ class DocsPlugin implements Plugin<Project> {
 
                 FROM jekyll/jekyll:4.2.2 as builder-jekyll
 
+                # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
                 RUN apk add graphviz
 
-                # Run a build to cache gems.
-                RUN jekyll build
                 """.stripIndent().trim()
 
                 // Copy the Jekyll configuration files into the Dockerfile using a heredoc.
@@ -728,6 +734,10 @@ class DocsPlugin implements Plugin<Project> {
                 }
 
                 dockerFileContent += """
+
+                # Run a build to cache gems.
+                RUN jekyll build --verbose
+
                 COPY --from=builder-java /src/build/brightsparklabs/docs/jinjaProcessed .
                 COPY --from=builder-java "/src/${config.buildImagesDir}" images
 
@@ -740,7 +750,7 @@ class DocsPlugin implements Plugin<Project> {
                 #   RUN ls -al /srv/jekyll
                 #
                 # Explicitly building to `/tmp/site` fixes it.
-                RUN jekyll build -d /tmp/site
+                RUN jekyll build --verbose -d /tmp/site
 
                 # NOTE:
                 #
