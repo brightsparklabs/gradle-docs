@@ -567,16 +567,25 @@ class DocsPlugin implements Plugin<Project> {
                 }
 
                 outputFileToContextMap.each { adocFile, context ->
-                    final String version = context.sys.project_version
-                    final String timestamp = context.output_file.last_commit.timestamp_formatted.iso_utc_safe
+                    // Find the PDF file which got generated from the asciidoc file.
                     final String extantFilename = adocFile
                             .getAbsolutePath()
                             .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfVersioned")
                             .replace(".adoc", ".pdf")
+                    final Path extantFile = Path.of(extantFilename)
+                    if (!extantFile.toFile().exists()) {
+                        // The asciidoc file did not result in a PDF file. This happens when the
+                        // asciidoc files are in asciidoc hidden folder (i.e. folders prefixed with
+                        // an underscore). These files can be ignored.
+                        project.logger.info('Ignoring asciidoc file which has no PDF equivalent: {}', adocFile.getAbsolutePath())
+                        return
+                    }
+
+                    final String version = context.sys.project_version
+                    final String timestamp = context.output_file.last_commit.timestamp_formatted.iso_utc_safe
                     final String renamedFilename = extantFilename
                             .replace(".pdf", "__${timestamp}__${version}.pdf")
 
-                    final Path extantFile = Path.of(extantFilename)
                     final Path renamedFile = Path.of(renamedFilename)
                     Files.move(extantFile, renamedFile)
                 }

@@ -16,7 +16,17 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/2.7.0...2.y.z)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/2.7.1...2.y.z)
+
+---
+
+## [2.7.1] - 2024-12-22
+
+### Fixed
+
+* APED-102: Ignore asciidoc files which do not produce PDF files
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/2.7.0...2.7.1)
 
 ---
 
