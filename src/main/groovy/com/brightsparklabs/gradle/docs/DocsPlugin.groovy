@@ -21,6 +21,7 @@ import org.gradle.api.UnknownTaskException
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.ZonedDateTime
@@ -381,9 +382,9 @@ class DocsPlugin implements Plugin<Project> {
      */
     private static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
         final Map<String, Object> sysContext = [
-            project_name: project.name,
-            project_description: project.description,
-            project_version: project.version,
+            project_name: Optional.ofNullable(project.name).map{it.trim()}.orElse("unspecified"),
+            project_description: Optional.ofNullable(project.description).map{it.trim()}.orElse("unspecified"),
+            project_version: Optional.ofNullable(project.version).map{it.trim()}.orElse("unspecified"),
             project_path: project.projectDir.toPath(),
             build_timestamp: now,
             build_timestamp_formatted: getFormattedTimestamps(now),
@@ -566,14 +567,18 @@ class DocsPlugin implements Plugin<Project> {
                 }
 
                 outputFileToContextMap.each { adocFile, context ->
-                    final String hash = context.output_file.last_commit.hash
+                    final String version = context.sys.project_version
                     final String timestamp = context.output_file.last_commit.timestamp_formatted.iso_utc_safe
-                    final String extantFilename = adocFile.getAbsolutePath().replace("jinjaProcessed", "docs/asciidoc/pdfVersioned").replace(".adoc", ".pdf")
-                    final String renamedFilename = extantFilename.replace(".pdf", " ${timestamp} ${hash}.pdf")
+                    final String extantFilename = adocFile
+                            .getAbsolutePath()
+                            .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfVersioned")
+                            .replace(".adoc", ".pdf")
+                    final String renamedFilename = extantFilename
+                            .replace(".pdf", "__${timestamp}__${version}.pdf")
 
-                    final File extantFile = new File(extantFilename)
-                    final File renamedFile = new File(renamedFilename)
-                    extantFile.renameTo(renamedFile)
+                    final Path extantFile = Path.of(extantFilename)
+                    final Path renamedFile = Path.of(renamedFilename)
+                    Files.move(extantFile, renamedFile)
                 }
             }
         }
@@ -675,15 +680,13 @@ class DocsPlugin implements Plugin<Project> {
 
                 // Render the jekyll configuration files.
                 def context = getGlobalContext(project, config)
-                def jekyllConfigFiles = ["_config.yml", "Gemfile"].collect { filename ->
+                ["_config.yml", "Gemfile"].collect { filename ->
                     def templateUrl = getClass().getResource("/website/${filename}.j2")
                     def templateText = Resources.toString(templateUrl, Charsets.UTF_8)
                     def fileContent = jinjava.render(templateText, context)
 
-                    return [
-                        filename: filename,
-                        content: fileContent
-                    ]
+                    def outputfile = new File(outputDir, filename)
+                    outputfile.text = fileContent
                 }
 
                 def dockerFileContent = """
@@ -708,8 +711,8 @@ class DocsPlugin implements Plugin<Project> {
                 COPY .git ./.git
                 COPY src ./src
 
-                # Build the asciidoc files.
-                RUN ./gradlew jinjaPreProcess --no-daemon
+                # Build the asciidoc files and Dockerfile resources.
+                RUN ./gradlew jinjaPreProcess generateDockerfile --no-daemon
 
                 # Always ensure the images directory exists since it is copied in next stage.
                 RUN mkdir -p "${config.buildImagesDir}"
@@ -723,17 +726,8 @@ class DocsPlugin implements Plugin<Project> {
                 # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
                 RUN apk add graphviz
 
-                """.stripIndent().trim()
-
-                // Copy the Jekyll configuration files into the Dockerfile using a heredoc.
-                // This ensures the Dockerfile is standalone.
-                jekyllConfigFiles.each {
-                    // NOTE: Not using a multiline string to avoid issues with indentation.
-                    def copyInstruction = "\nCOPY <<EOF ${it.filename}\n" + it.content + "\nEOF\n"
-                    dockerFileContent +=  copyInstruction
-                }
-
-                dockerFileContent += """
+                COPY --from=builder-java /src/build/brightsparklabs/docs/dockerfile/_config.yml .
+                COPY --from=builder-java /src/build/brightsparklabs/docs/dockerfile/Gemfile .
 
                 # Run a build to cache gems.
                 RUN jekyll build --verbose
