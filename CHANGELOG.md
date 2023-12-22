@@ -16,7 +16,17 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/2.7.1...2.y.z)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.0.0...3.y.z)
+
+---
+
+## [3.0.0] - 2024-12-22
+
+### Changed
+
+* APED-102: Upgrade to Gradle 8
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/2.7.1...3.0.0)
 
 ---
 
@@ -60,7 +70,7 @@ _No changelog for this release._
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/2.7.0...2.y.z)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.0.0...3.y.z)
 
 ---
 

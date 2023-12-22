@@ -5,7 +5,13 @@
 
 Applies brightSPARK Labs standardisation to project documentation.
 
-**NOTE: This plugin requires JDK 17 or above.**
+## Compatibility
+
+| Plugin Version | Gradle Version | Java Version
+| -------------- | -------------- | ------------
+| 3.x.y          | 8.x.y          | 17
+| 2.x.y          | 7.x.y          | 17
+| 1.x.y          | 6.x.y          | 11
 
 ## Build
 
