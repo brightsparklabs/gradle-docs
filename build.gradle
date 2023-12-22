@@ -22,7 +22,7 @@ plugins {
     id "java"
 
     // Apply the brightSPARK Labs plugin for standardisation.
-    id "com.brightsparklabs.gradle.baseline" version "3.1.0"
+    id "com.brightsparklabs.gradle.baseline" version "4.3.0"
 }
 
 // -----------------------------------------------------------------------------
@@ -30,9 +30,6 @@ plugins {
 // -----------------------------------------------------------------------------
 
 repositories {
-    // Use jcenter for resolving dependencies.
-    // You can declare any Maven/Ivy/file repository here.
-    //    jcenter()
     maven {
         url "https://plugins.gradle.org/m2/"
     }
@@ -64,18 +61,9 @@ project.ext.url     = "https://github.com/brightsparklabs/gradle-docs"
 // java-gradle-plugin
 // -----------------------------------------------------------------------------
 
-pluginBundle {
+gradlePlugin {
     website = project.url
     vcsUrl = project.scm
-    tags = [
-        "brightsparklabs",
-        "docs",
-        "asciidoc",
-        "asciidoctor",
-    ]
-}
-
-gradlePlugin {
     // Define the plugin.
     plugins {
         docs {
@@ -83,6 +71,12 @@ gradlePlugin {
             displayName = "Gradle Docs at brightSPARK Labs"
             description = project.description
             implementationClass = "com.brightsparklabs.gradle.docs.DocsPlugin"
+            tags = [
+                "brightsparklabs",
+                "docs",
+                "asciidoc",
+                "asciidoctor",
+            ]
         }
     }
 }
@@ -120,5 +114,5 @@ project.afterEvaluate {
 // -----------------------------------------------------------------------------
 
 shadowJar {
-    classifier = ''
+    archiveClassifier = null
 }
