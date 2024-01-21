@@ -777,22 +777,34 @@ class DocsPlugin implements Plugin<Project> {
                 # -----------------------------------------
 
                 # The image produced by this stage hosts the website.
-
-                FROM kyma/docker-nginx:latest
                 MAINTAINER brightSPARK Labs <enquire@brightsparklabs.com>
+
+                # NOTE: We use `bitnami` as the container runs as a non-root user (`1001`).
+                FROM bitnami/nginx:1.24.0
+
+                USER root
+                RUN chown -R 1001:1001 /opt/bitnami
+                USER 1001
+
+                # The port for nginx.
+                EXPOSE 8080
+
+                COPY --from=builder-jekyll /tmp/site /app
+
+                ARG APP_VERSION=latest
                 ARG BUILD_DATE=UNKNOWN
                 ARG VCS_REF=UNKNOWN
-                LABEL org.label-schema.name="nswcc-documentation" \
-                      org.label-schema.description="Image used by NSWCC to host documentation as a static website" \
+                LABEL org.label-schema.name="gradle-docs" \
+                      org.label-schema.description="Image used to host documentation as a static website" \
                       org.label-schema.vendor="brightSPARK Labs" \
                       org.label-schema.schema-version="1.0.0-rc1" \
-                      org.label-schema.vcs-url="https://bitbucket.org/brightsparklabs/nswcc-documentation" \
+                      org.label-schema.vcs-url="https://github.com/brightsparklabs/gradle-docs.git" \
                       org.label-schema.vcs-ref=\${VCS_REF} \
                       org.label-schema.build-date=\${BUILD_DATE}
                 ENV META_BUILD_DATE=\${BUILD_DATE} \
-                    META_VCS_REF=\${VCS_REF}
-
-                COPY --from=builder-jekyll /tmp/site /var/www
+                    META_VCS_REF=\${VCS_REF} \
+                    APP_VERSION=\${APP_VERSION}
+                RUN echo \${APP_VERSION} > /app/VERSION
                 """.stripIndent().trim()
 
                 def dockerFile = new File(outputDir, "Dockerfile")
