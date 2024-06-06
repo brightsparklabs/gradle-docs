@@ -705,11 +705,11 @@ class DocsPlugin implements Plugin<Project> {
 
                 FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
 
-                RUN apk add \\
-                  # Allow gradle-docs plugin to read git details on files.
-                  git \\
-                  # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
-                  graphviz
+                # Allow gradle-docs plugin to read git details on files.
+                RUN apk add git
+
+                # Allow asciidoctor-diagram to render plantuml (dot) diagrams.
+                RUN apk add graphviz
 
                 # Get gradle distribution (done separately so Docker caches layer)
                 WORKDIR /src
@@ -732,8 +732,13 @@ class DocsPlugin implements Plugin<Project> {
 
                 FROM jekyll/jekyll:4.2.2 as builder-jekyll
 
-                # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
+                # Allow asciidoctor-diagram to render plantuml (dot) diagrams.
                 RUN apk add graphviz
+
+                # Allow asciidoctor-diagram to render Vega diagrams.
+                # Vega is an nodejs project, but it requires C header files from `giflib`.
+                RUN apk add giflib-dev
+                RUN npm install -g vega-cli
 
                 COPY --from=builder-java /src/build/brightsparklabs/docs/dockerfile/_config.yml .
                 COPY --from=builder-java /src/build/brightsparklabs/docs/dockerfile/Gemfile .

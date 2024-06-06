@@ -563,12 +563,65 @@ asciidoctorj {
 }
 ```
 
-In order to make use of the various diagramming formats, the backing tool needs to be installed on
-the system. E.g.
+In order to make use of the [various diagramming
+formats](https://docs.asciidoctor.org/diagram-extension/latest/), the backing tool needs to be
+installed on the system.
 
-- `graphviz`/`plantuml` requires [graphviz](https://graphviz.org/) `dot` installed.
-- `vega` requires [Vega](https://vega.github.io/vega/) installed.
-- etc.
+The following CLI tools are installed in the **Jeykyll website generation** container used by the
+`generateJekyllWebsite` task:
+
+* [graphviz](https://graphviz.org/) `dot` - Allowing the use of `graphviz`/`plantuml` diagrams.
+
+        Generate PNG file (with random name) from graphviz spec.
+
+        [graphviz]
+        ....
+        digraph G {
+            main -> parse -> execute;
+            main -> init;
+            main -> cleanup;
+            execute -> make_string;
+            execute -> printf
+            init -> make_string;
+            main -> printf;
+            execute -> compare;
+        }
+        ....
+
+        Generate `my-diagram.svg` from plantuml spec.
+
+        [plantuml,my-diagram,svg]
+        ....
+        @startjson
+        {
+           "fruit":"Apple",
+           "size":"Large",
+           "color": ["Red", "Green"]
+        }
+        @endjson
+        ....
+
+* [vega-cli](https://vega.github.io/vega/usage/#cli) - Allowing the use of `Vega`/`Vega-Lite`
+  diagrams.
+
+        [vega,bar-chart,svg]
+        ....
+        {
+          "description": "A simple bar chart with embedded data.",
+          "data": {
+            "values": [
+              {"a": "A","b": 28}, {"a": "B","b": 55}, {"a": "C","b": 43},
+              {"a": "D","b": 91}, {"a": "E","b": 81}, {"a": "F","b": 53},
+              {"a": "G","b": 19}, {"a": "H","b": 87}, {"a": "I","b": 52}
+            ]
+          },
+          "mark": "bar",
+          "encoding": {
+            "x": {"field": "a", "type": "ordinal"},
+            "y": {"field": "b", "type": "quantitative"}
+          }
+        }
+        ....
 
 ## Jekyll Website
 
