@@ -57,17 +57,20 @@ it will also generate a Jekyll based static website.
 
 The tasks added by this plugin appear under the `BrightSPARK Labs - Docs tasks` group. E.g.
 
-    $ ./gradlew task | sed -n '/BrightSPARK/,/^$/p's
+    $ ./gradlew task | sed -n '/BrightSPARK/,/^$/p'
 
     BrightSPARK Labs - Docs tasks
     -----------------------------
     bslAsciidoctor - Alias for `asciidoctor` task.
     bslAsciidoctorPdf - Alias for `asciidoctorPdf` task.
-    bslAsciidoctorPdfVersioned - Creates PDF files with version string in filename
-    cleanJekyllWebsite - Cleans the Jekyll website out of the build directory
-    cleanJinjaPreProcess - Cleans the Jinja2 processed documents out of the build directory
-    generateJekyllWebsite - Generates a Jekyll based website from the documents
-    jinjaPreProcess - Performs Jinja2 pre-processing on documents
+    bslAsciidoctorPdfInDocker - Runs the Asciidoctor PDF tasks within a Docker container. Useful as
+      the CLI diagramming CLI tools do not need to be installed on the local machine.
+    bslAsciidoctorPdfVersioned - Creates PDF files with version string in filename.
+    cleanJekyllWebsite - Cleans the Jekyll website out of the build directory.
+    cleanJinjaPreProcess - Cleans the Jinja2 processed documents out of the build directory.
+    generateDockerfile - Generates a Dockerfile for hosting the documentation as a static website.
+    generateJekyllWebsite - Generates a Jekyll based website from the documents using docker.
+    jinjaPreProcess - Performs Jinja2 pre-processing on documents.
 
 NOTE: `generateJekyllWebsite` is only available if `docker buildx` is present on the system.
 
@@ -563,12 +566,66 @@ asciidoctorj {
 }
 ```
 
-In order to make use of the various diagramming formats, the backing tool needs to be installed on
-the system. E.g.
+In order to make use of the [various diagramming
+formats](https://docs.asciidoctor.org/diagram-extension/latest/), the backing tool needs to be
+installed on the system.
 
-- `graphviz`/`plantuml` requires [graphviz](https://graphviz.org/) `dot` installed.
-- `vega` requires [Vega](https://vega.github.io/vega/) installed.
-- etc.
+The CLI tools listed below are installed in the containers used by the `asciidoctorPdfDocker` and
+`generateJekyllWebsite` tasks. I.e. These tasks can be used to create documents containing diagrams
+of the listed types without needing to install those tools on the local workstation.
+
+* [graphviz](https://graphviz.org/) `dot` - Allowing the use of `graphviz`/`plantuml` diagrams.
+
+        Generate PNG file (with random name) from graphviz spec.
+
+        [graphviz]
+        ....
+        digraph G {
+            main -> parse -> execute;
+            main -> init;
+            main -> cleanup;
+            execute -> make_string;
+            execute -> printf
+            init -> make_string;
+            main -> printf;
+            execute -> compare;
+        }
+        ....
+
+        Generate `my-diagram.svg` from plantuml spec.
+
+        [plantuml,my-diagram,svg]
+        ....
+        @startjson
+        {
+           "fruit":"Apple",
+           "size":"Large",
+           "color": ["Red", "Green"]
+        }
+        @endjson
+        ....
+
+* [vega-cli](https://vega.github.io/vega/usage/#cli) - Allowing the use of `Vega`/`Vega-Lite`
+  diagrams.
+
+        [vega,bar-chart,svg]
+        ....
+        {
+          "description": "A simple bar chart with embedded data.",
+          "data": {
+            "values": [
+              {"a": "A","b": 28}, {"a": "B","b": 55}, {"a": "C","b": 43},
+              {"a": "D","b": 91}, {"a": "E","b": 81}, {"a": "F","b": 53},
+              {"a": "G","b": 19}, {"a": "H","b": 87}, {"a": "I","b": 52}
+            ]
+          },
+          "mark": "bar",
+          "encoding": {
+            "x": {"field": "a", "type": "ordinal"},
+            "y": {"field": "b", "type": "quantitative"}
+          }
+        }
+        ....
 
 ## Jekyll Website
 
