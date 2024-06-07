@@ -112,12 +112,22 @@ class DocsPlugin implements Plugin<Project> {
         final File baseOutputDirectory = project.file('build/brightsparklabs/docs')
         final File jinjaOutputDir = new File(baseOutputDirectory, 'jinjaProcessed')
         final File dockerfileOutputDir = new File(baseOutputDirectory, 'dockerfile')
+        final File dockerPdfOutputDir = new File(baseOutputDirectory, 'pdf')
         final File websiteOutputDir = new File(baseOutputDirectory, 'website')
 
         setupJinjaPreProcessingTasks(project, config, jinjaOutputDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
         setupDockerFileTask(project, config, dockerfileOutputDir)
-        setupWebsiteTasks(project, config, websiteOutputDir)
+
+        def dockerOrPodman = getDockerExecutableName(project)
+        if (dockerOrPodman.isEmpty()) {
+            project.logger.lifecycle("Docker `buildx` compatible command not available. Excluding tasks which rely on it.")
+            return
+        }
+
+        dockerOrPodman = dockerOrPodman.get()
+        setupBuildInDocker(project, config, dockerPdfOutputDir, dockerOrPodman)
+        setupWebsiteTasks(project, config, websiteOutputDir, dockerOrPodman)
     }
 
     // --------------------------------------------------------------------------
@@ -134,7 +144,7 @@ class DocsPlugin implements Plugin<Project> {
     private void setupJinjaPreProcessingTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
         project.tasks.register('cleanJinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
-            description = "Cleans the Jinja2 processed documents out of the build directory"
+            description = "Cleans the Jinja2 processed documents out of the build directory."
 
             doLast {
                 project.delete jinjaOutputDir
@@ -159,7 +169,7 @@ class DocsPlugin implements Plugin<Project> {
 
         project.tasks.register('jinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
-            description = "Performs Jinja2 pre-processing on documents"
+            description = "Performs Jinja2 pre-processing on documents."
 
             /* Calculate the relative path of this project's directory (i.e. the directory
              * containing this project's `build.gradle` file) relative to the repo root.
@@ -556,7 +566,7 @@ class DocsPlugin implements Plugin<Project> {
 
         project.tasks.register('bslAsciidoctorPdfVersioned') {
             group = "brightSPARK Labs - Docs"
-            description = "Creates PDF files with version string in filename"
+            description = "Creates PDF files with version string in filename."
 
             doLast {
                 final def pdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdf")
@@ -700,16 +710,65 @@ class DocsPlugin implements Plugin<Project> {
 
                 def dockerFileContent = """
                 # -----------------------------------------
-                # BUILD STAGE: GENERATE ASCIIDOC/PDF FILES
+                # BUILD STAGE: GENERATE PDF FILES
+                # -----------------------------------------
+
+                # This stage is not actually used in the website generation. It is just here to
+                # allow PDF files to be build in a container, with Graphviz+Vega diagramming tools
+                # available.
+                #
+                # Can be called manually via:
+                #
+                #   docker build -t docs -f <GENERATED_DOCKER_FILE> --target builder-pdf .
+
+                FROM eclipse-temurin:17.0.9_9-jdk-jammy as builder-pdf
+
+                RUN apt update
+                # Allow gradle-docs plugin to read git details on files.
+                RUN apt install -y git
+
+                # Allow asciidoctor-diagram to render plantuml (dot) diagrams.
+                RUN apt install -y graphviz
+
+                # Allow asciidoctor-diagram to render Vega diagrams.
+                # nvm needs an interactive shell: https://stackoverflow.com/a/60137919
+                SHELL ["/bin/bash", "--login", "-i", "-c"]
+                RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+                RUN source ~/.bashrc
+                RUN nvm install lts/iron
+                RUN npm install -g vega-cli
+
+                # Get gradle distribution (done separately so Docker caches layer)
+                WORKDIR /src
+                COPY build.gradle settings.gradle gradlew ./
+                COPY gradle ./gradle/
+                RUN ./gradlew build || return 0 # force sucess as build is expected to fail due to no sources
+
+                COPY .git ./.git
+                COPY src ./src
+
+                # Build the PDF files.
+                RUN ./gradlew bslAsciidoctorPdfVersioned --no-daemon
+
+                # -----------------------------------------
+                # EXPORT STAGE
+                # -----------------------------------------
+
+                # The image produced by this stage can be used if the files are to be exported to
+                # the file system via: `docker build ... --target pdf-export-stage --output output/`
+
+                # Base off scratch so output only contains the PDF files.
+                FROM scratch AS pdf-export-stage
+                COPY --from=builder-pdf /src/build/docs/asciidoc .
+
+                # -----------------------------------------
+                # BUILD STAGE: GENERATE ASCIIDOC FILES
                 # -----------------------------------------
 
                 FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
 
                 # Allow gradle-docs plugin to read git details on files.
                 RUN apk add git
-
-                # Allow asciidoctor-diagram to render plantuml (dot) diagrams.
-                RUN apk add graphviz
 
                 # Get gradle distribution (done separately so Docker caches layer)
                 WORKDIR /src
@@ -788,16 +847,17 @@ class DocsPlugin implements Plugin<Project> {
                 ARG BUILD_DATE=UNKNOWN
                 ARG VCS_REF=UNKNOWN
                 LABEL org.label-schema.name="nswcc-documentation" \
-                      org.label-schema.description="Image used by NSWCC to host documentation as a static website" \
+                      org.label-schema.description="Image used to host documentation as a static website." \
                       org.label-schema.vendor="brightSPARK Labs" \
                       org.label-schema.schema-version="1.0.0-rc1" \
-                      org.label-schema.vcs-url="https://bitbucket.org/brightsparklabs/nswcc-documentation" \
+                      org.label-schema.vcs-url="https://bitbucket.org/brightsparklabs/gradle-docs" \
                       org.label-schema.vcs-ref=\${VCS_REF} \
                       org.label-schema.build-date=\${BUILD_DATE}
                 ENV META_BUILD_DATE=\${BUILD_DATE} \
                     META_VCS_REF=\${VCS_REF}
 
                 COPY --from=builder-jekyll /tmp/site /var/www
+                COPY --from=builder-pdf /src/build/docs/asciidoc /var/www/export
                 """.stripIndent().trim()
 
                 def dockerFile = new File(outputDir, "Dockerfile")
@@ -811,28 +871,89 @@ class DocsPlugin implements Plugin<Project> {
     }
 
     /**
+     * Returns the name of the docker compatible executable (docker or podman) iff it has `buildx` support.
+     *
+     * @param project Gradle project to add the task to.
+     * @return `docker` or `podman` iff one of them has `buildx` support. Empty otherwise.
+     */
+    private Optional<String> getDockerExecutableName(Project project) {
+        if (checkCommandAvailable("docker buildx --help")) {
+            project.logger.lifecycle("`docker buildx` available.")
+            return Optional.of("docker")
+        }
+
+        if (checkCommandAvailable("podman buildx --help")) {
+            project.logger.lifecycle("`podman buildx` available.")
+            return Optional.of("podman")
+        }
+
+        project.logger.lifecycle("`docker buildx` / `podman buildx` not available.")
+        return Optional.empty()
+    }
+
+    /**
+     * Runs the `bslAsciidoctorPdf` task in a docker container. Useful as the CLI diagramming CLI
+     * tools do not need to be installed on the local machine.
+     *
+     * @param project Gradle project to add the task to.
+     * @param config Configuration for this plugin.
+     * @param outputDir Directory to write the output to.
+     * @param dockerOrPodman The command (docker or podman) to run for building the container.
+     */
+    private void setupBuildInDocker(Project project, DocsPluginExtension config, File outputDir, String dockerOrPodman) {
+        project.tasks.register('bslAsciidoctorPdfInDocker') {
+            group = "brightSPARK Labs - Docs"
+            description = "Runs the Asciidoctor PDF tasks within a Docker container. Useful as the CLI diagramming CLI tools do not need to be installed on the local machine."
+            dependsOn(GENERATE_DOCKERFILE_TASK_NAME)
+            inputs.files(project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).get().outputs.files)
+            outputs.dir(outputDir)
+
+            doLast {
+                outputDir.deleteDir()
+                outputDir.mkdirs()
+
+                /*
+                 * The outputs from the `generateDockerFile` task only contain one file, the
+                 * Dockerfile. It is the first item.
+                 */
+                def dockerFile = inputs.files[0]
+
+                def command = [
+                    dockerOrPodman,
+                    "build",
+                    "--file",
+                    dockerFile,
+                    // Specify the stage which contains only the built artifact.
+                    "--target=pdf-export-stage",
+                    // Write the files from that stage to the output directory.
+                    "--output",
+                    outputDir,
+                    project.projectDir
+                ]
+                // Use `project.exec` (rather than "command".execute() as it live prints stderr/stdout.
+                project.exec {
+                    commandLine command
+                }
+                logger.lifecycle("PDF files exported to: `${outputDir}`")
+            }
+        }
+    }
+
+
+    /**
      * Adds the website generation tasks.
      *
      * @param project Gradle project to add the task to.
      * @param config Configuration for this plugin.
+     * @param outputDir Directory to write the output to.
+     * @param dockerOrPodman The command (docker or podman) to run for building the container.
      */
-    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File outputDir) {
-        // Only enable task if `docker buildx`/`podman buildx` is present since it is used for the generation.
-        def dockerOrPodman
-        if (checkCommandAvailable("docker buildx --help")) {
-            project.logger.lifecycle("`docker buildx` available. Adding website generation tasks.")
-            dockerOrPodman = "docker"
-        } else if (checkCommandAvailable("podman buildx --help")) {
-            project.logger.lifecycle("`podman buildx` available. Adding website generation tasks.")
-            dockerOrPodman = "podman"
-        } else {
-            project.logger.lifecycle("`docker buildx` / `podman buildx` not available. Not adding website generation tasks (which require it)")
-            return
-        }
+    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File outputDir, String dockerOrPodman) {
+        project.logger.lifecycle("Adding website generation tasks.")
 
         project.tasks.register('cleanJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
-            description = "Cleans the Jekyll website out of the build directory"
+            description = "Cleans the Jekyll website out of the build directory."
 
             doLast {
                 project.delete outputDir
@@ -840,8 +961,6 @@ class DocsPlugin implements Plugin<Project> {
         }
 
         // Use `afterEvaluate` in case another task add the `clean` task.
-
-
         project.afterEvaluate {
             try {
                 project.tasks.named('clean')
@@ -849,16 +968,16 @@ class DocsPlugin implements Plugin<Project> {
             catch (UnknownTaskException ignored) {
                 project.tasks.register('clean') {
                     group = "brightSPARK Labs - Docs"
-                    description = "Cleans the Jekyll website out of the build directory"
+                    description = "Cleans the Jekyll website out of the build directory."
                 }
             }
 
-            project.tasks.named('clean'){ dependsOn 'cleanJekyllWebsite'}
+            project.tasks.named('clean') { dependsOn 'cleanJekyllWebsite' }
         }
 
         project.tasks.register('generateJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
-            description = "Generates a Jekyll based website from the documents using docker"
+            description = "Generates a Jekyll based website from the documents using docker."
             dependsOn(GENERATE_DOCKERFILE_TASK_NAME)
             inputs.files(project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).get().outputs.files)
             outputs.dir(outputDir)
