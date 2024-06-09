@@ -570,6 +570,11 @@ class DocsPlugin implements Plugin<Project> {
 
             doLast {
                 final def pdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdf")
+                final def timestampedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfTimestamped")
+                project.copy {
+                    from pdfOutputDir
+                    into timestampedPdfOutputDir
+                }
                 final def versionedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfVersioned")
                 project.copy {
                     from pdfOutputDir
@@ -578,12 +583,12 @@ class DocsPlugin implements Plugin<Project> {
 
                 outputFileToContextMap.each { adocFile, context ->
                     // Find the PDF file which got generated from the asciidoc file.
-                    final String extantFilename = adocFile
+                    final String extantTimestampedFilename = adocFile
                             .getAbsolutePath()
-                            .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfVersioned")
+                            .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfTimestamped")
                             .replace(".adoc", ".pdf")
-                    final Path extantFile = Path.of(extantFilename)
-                    if (!extantFile.toFile().exists()) {
+                    final Path extantTimestampedFile = Path.of(extantTimestampedFilename)
+                    if (!extantTimestampedFile.toFile().exists()) {
                         // The asciidoc file did not result in a PDF file. This happens when the
                         // asciidoc files are in asciidoc hidden folder (i.e. folders prefixed with
                         // an underscore). These files can be ignored.
@@ -591,13 +596,24 @@ class DocsPlugin implements Plugin<Project> {
                         return
                     }
 
-                    final String version = context.sys.project_version
+                    // Copy to timestamped directory.
                     final String timestamp = context.output_file.last_commit.timestamp_formatted.iso_utc_safe
-                    final String renamedFilename = extantFilename
-                            .replace(".pdf", "__${timestamp}__${version}.pdf")
+                    final String renamedTimestampedFilename = extantTimestampedFilename
+                            .replace(".pdf", "__${timestamp}.pdf")
+                    final Path renamedTimestampedFile = Path.of(renamedTimestampedFilename)
+                    Files.move(extantTimestampedFile, renamedTimestampedFile)
 
-                    final Path renamedFile = Path.of(renamedFilename)
-                    Files.move(extantFile, renamedFile)
+                    // Copy to versioned directory.
+                    final String version = context.sys.project_version
+                    final String extantVersionedFilename = adocFile
+                            .getAbsolutePath()
+                            .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfVersioned")
+                            .replace(".adoc", ".pdf")
+                    final Path extantVersionedFile = Path.of(extantVersionedFilename)
+                    final String renamedVersionedFilename = extantVersionedFilename
+                            .replace(".pdf", "__${timestamp}__${version}.pdf")
+                    final Path renamedVersionedFile = Path.of(renamedVersionedFilename)
+                    Files.move(extantVersionedFile, renamedVersionedFile)
                 }
             }
         }
