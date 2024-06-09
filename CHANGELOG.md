@@ -12,6 +12,9 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
+* RAD-191: Support Vega diagrams in build containers.
+* RAD-192: Add `pdfTimestamped` variant for generated documents'
+
 ### Fixed
 
 ### Changed
