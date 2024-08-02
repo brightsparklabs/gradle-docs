@@ -1,30 +1,38 @@
-# gradle-docs
+= gradle-docs
+:toc: left
+:sectnums:
 
-[![Build Status](https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml)
-[![Gradle Plugin](https://img.shields.io/gradle-plugin-portal/v/com.brightsparklabs.gradle.docs)](https://plugins.gradle.org/plugin/com.brightsparklabs.gradle.docs)
+https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml[image:https://github.com/brightsparklabs/gradle-docs/actions/workflows/unit_tests.yml/badge.svg[Build
+Status]]
+https://plugins.gradle.org/plugin/com.brightsparklabs.gradle.docs[image:https://img.shields.io/gradle-plugin-portal/v/com.brightsparklabs.gradle.docs[Gradle
+Plugin]]
 
 Applies brightSPARK Labs standardisation to project documentation.
 
-## Compatibility
+== Compatibility
 
-| Plugin Version | Gradle Version | Java Version
-| -------------- | -------------- | ------------
-| 3.x.y          | 8.x.y          | 17
-| 2.x.y          | 7.x.y          | 17
-| 1.x.y          | 6.x.y          | 11
+|===
+|Plugin Version |Gradle Version |Java Version
 
-## Build
+|3.x.y |8.x.y |17
+|2.x.y |7.x.y |17
+|1.x.y |6.x.y |11
+|===
 
-```shell
+== Build
+
+[source,shell]
+----
 ./gradlew build
 
 # publish
 ./gradlew publishPlugins
-```
+----
 
-## Usage
+== Usage
 
-```groovy
+[source,groovy]
+----
 // file: build.gradle
 
 plugins {
@@ -36,53 +44,53 @@ plugins {
 repositories {
     mavenCentral()
 }
-```
+----
 
 By default:
 
-- AsciiDoc files should be stored under `src/docs/`.
-- Images should be stored under `src/images`, which can then be referenced via [AsciiDoc image
-  macros](https://docs.asciidoctor.org/asciidoc/latest/macros/images/).
-- Any files ending with `.j2` will first be processed by
-  [Jinjava](https://github.com/HubSpot/jinjava) (Java port of Python Jinja2).
-- A number of Jinja2 macros are added by default. See
-  [brightSPARK Labs Jinja2 Macros](#brightspark-labs-jinja2-macros).
+* AsciiDoc files should be stored under `src/docs/`.
+* Images should be stored under `src/images`, which can then be referenced via
+  https://docs.asciidoctor.org/asciidoc/latest/macros/images/[AsciiDoc image macros].
+* Any files ending with `.j2` will first be processed by https://github.com/HubSpot/jinjava[Jinjava]
+  (Java port of Python Jinja2).
+* A number of Jinja2 macros are added by default. See
+  link:#brightspark-labs-jinja2-macros[brightSPARK Labs Jinja2 Macros].
 
 Running `./gradlew build` will generate PDF and HTML of the documentation.
 
 If `docker buildx` is present on the system, then in addition to the AsciiDoc HTML backend output,
 it will also generate a Jekyll based static website.
 
-### Tasks
+=== Tasks
 
 The tasks added by this plugin appear under the `BrightSPARK Labs - Docs tasks` group. E.g.
 
-    $ ./gradlew task | sed -n '/BrightSPARK/,/^$/p'
+[source,shell]
+----
+$ ./gradlew task | sed -n '/BrightSPARK/,/^$/p'
 
-    BrightSPARK Labs - Docs tasks
-    -----------------------------
-    bslAsciidoctor - Alias for `asciidoctor` task.
-    bslAsciidoctorPdf - Alias for `asciidoctorPdf` task.
-    bslAsciidoctorPdfInDocker - Runs the Asciidoctor PDF tasks within a Docker container. Useful as
-      the CLI diagramming CLI tools do not need to be installed on the local machine.
-    bslAsciidoctorPdfVersioned - Creates PDF files with version string in filename.
-    cleanJekyllWebsite - Cleans the Jekyll website out of the build directory.
-    cleanJinjaPreProcess - Cleans the Jinja2 processed documents out of the build directory.
-    generateDockerfile - Generates a Dockerfile for hosting the documentation as a static website.
-    generateJekyllWebsite - Generates a Jekyll based website from the documents using docker.
-    jinjaPreProcess - Performs Jinja2 pre-processing on documents.
+BrightSPARK Labs - Docs tasks
+-----------------------------
+bslAsciidoctor - Alias for `asciidoctor` task.
+bslAsciidoctorPdf - Alias for `asciidoctorPdf` task.
+bslAsciidoctorPdfInDocker - Runs the Asciidoctor PDF tasks within a Docker container. Useful as
+  the CLI diagramming CLI tools do not need to be installed on the local machine.
+bslAsciidoctorPdfVersioned - Creates PDF files with version string in filename.
+cleanJekyllWebsite - Cleans the Jekyll website out of the build directory.
+cleanJinjaPreProcess - Cleans the Jinja2 processed documents out of the build directory.
+generateDockerfile - Generates a Dockerfile for hosting the documentation as a static website.
+generateJekyllWebsite - Generates a Jekyll based website from the documents using docker.
+jinjaPreProcess - Performs Jinja2 pre-processing on documents.
+----
 
 NOTE: `generateJekyllWebsite` is only available if `docker buildx` is present on the system.
 
-### Jinja2 Context Map
+== Jinja2 Context Map
 
-The context provided to the Jinja2 rendering engine has the following format:
+=== System variables
 
-```
-# ------------------------------------------------------------------------------
-# System variables.
-# ------------------------------------------------------------------------------
-
+[source,yaml]
+----
 sys:
   # The `project.name` set in Gradle.
   project_name: <name>
@@ -146,19 +154,18 @@ sys:
 
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
+----
 
+=== Global variables
 
-# ------------------------------------------------------------------------------
-# User defined variables from global variables YAML file (default: `src/variables.yaml`).
-# ------------------------------------------------------------------------------
+User defined variables from global variables YAML file (default: `src/variables.yaml`).
 
+[source,yaml]
+----
 vars:
   ...
 
-
-# ------------------------------------------------------------------------------
 # Details of the last git commit on the global variables YAML file.
-# ------------------------------------------------------------------------------
 
 vars_file_last_commit:
   # The git commit hash (defaults to `unspecified` if file not under git control).
@@ -186,12 +193,14 @@ vars_file_last_commit:
 
     # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
     iso_offset_safe: <timestamp>
+----
 
+=== (Dynamic) Current template variables
 
-# ------------------------------------------------------------------------------
-# (Dynamic) Variables pertaining to the CURRENT template being rendered.
-# ------------------------------------------------------------------------------
+(Dynamic) Variables pertaining to the CURRENT template being rendered.
 
+[source,yaml]
+----
 template_file:
   # The name of the source template file.
   name: <name>
@@ -266,12 +275,14 @@ template_file:
 
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
+----
 
+=== (Dynamic) Current directory variables
 
-# ------------------------------------------------------------------------------
-# (Dynamic) Variables pertaining to the CURRENT directory of the template being rendered.
-# ------------------------------------------------------------------------------
+(Dynamic) Variables pertaining to the CURRENT directory of the template being rendered.
 
+[source,yaml]
+----
 template_dir:
   # The relative path (in docs directory) of the directory containing the source template file.
   path: <path>
@@ -279,13 +290,15 @@ template_dir:
   # User defined variables from directory variables YAML file (`./variables.yaml`).
   vars:
     ...
+----
 
+=== (Dynamic) Current instance file variables
 
-# ------------------------------------------------------------------------------
-# (Dynamic) User defined variables from the CURRENT instance variable file being processed (if
-# present).
-# ------------------------------------------------------------------------------
+(Dynamic) User defined variables from the CURRENT instance variable file being processed (if
+present).
 
+[source,yaml]
+----
 # Instance variable files must be stored under a directory with the same name as the Jinja2 template
 # file with `.d` appended. Each `.yaml` file under this directory will be rendered against the
 # corresponding Jinja2 template file.
@@ -340,12 +353,14 @@ instance_file:
   # Variables from the instance variables file.
   vars:
     ...
+----
 
+=== (Dynamic) Current output file variables
 
-# ------------------------------------------------------------------------------
-# (Dynamic) Details of the CURRENT file being rendered.
-# ------------------------------------------------------------------------------
+(Dynamic) Details of the CURRENT file being rendered.
 
+[source,yaml]
+----
 output_file:
   # The name of the output file.
   name: <name>
@@ -385,34 +400,40 @@ output_file:
 
       # Timestamp with offset as an ISO8601 string with `:` removed (safe for Windows file systems).
       iso_offset_safe: <timestamp>
+----
 
+=== Plugin configuration variables
 
-# ------------------------------------------------------------------------------
-# Plugin configuration.
-# ------------------------------------------------------------------------------
+The `docsPluginConfig` object as defined in the <<Configuration>> section below.
 
+[source,yaml]
+----
 config:
-  # The `docsPluginConfig` object as defined in the `Configuration` section below.
   ...
-```
+----
+
+=== Using variables
 
 The values from the above context can be referenced using standard Jinja2 references. E.g.
 
-    {{ sys.project_version }}
+[source,jinja2]
+----
+{{ sys.project_version }}
 
-    {{ output_file.last_commit.timestamp | datetimeformat("%Y-%m-%d at %H:%M %Z", "Australia/Sydney") }}
+{{ output_file.last_commit.timestamp | datetimeformat("%Y-%m-%d at %H:%M %Z", "Australia/Sydney") }}
 
-    {{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
+{{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
+----
 
-## Tasks
+== Tasks
 
 The plugin adds the following gradle tasks:
 
-### jinjaPreProcess
+=== jinjaPreProcess
 
 Performs Jinja2 pre-processing on documents.
 
-### asciidoctor
+=== asciidoctor
 
 Generic task to convert AsciiDoc files and copy related resources.
 
@@ -420,17 +441,18 @@ This will automatically be added as a dependency to the `build` task.
 
 Alias `bslAsciidoctor`.
 
-### asciidoctorPdf
+=== asciidoctorPdf
 
 Convert AsciiDoc files to PDF format.
 
 Alias `bslAsciidoctorPdf`.
 
-## Configuration
+== Configuration
 
 Use the following configuration block to configure the plugin:
 
-```groovy
+[source,groovy]
+----
 // file: build.gradle
 
 project.version = 'git describe --always --dirty'.execute().text.trim()
@@ -533,112 +555,120 @@ docsPluginConfig {
    // Default: `just-the-docs`.
    website.theme = 'minimal-mistakes-jekyll'
 }
-```
+----
 
-### brightSPARK Labs Jinja2 Macros
+=== brightSPARK Labs Jinja2 Macros
 
-If the configuration field `autoImportMacros` is set to `true` (default) then the following
-macros shall be be available under the `brightsparklabs` namespace:
+If the configuration field `autoImportMacros` is set to `true` (default) then the following macros
+shall be be available under the `brightsparklabs` namespace:
 
-- `add_default_attributes()` - Adds the standard set of AsciiDoc attributes to the document.
+* `add_default_attributes()` - Adds the standard set of AsciiDoc attributes to the document.
 
 These can be used as follows:
 
-    {{ brightsparklabs.add_default_attributes() }}
+....
+{{ brightsparklabs.add_default_attributes() }}
+....
 
 Macros are defined in:
 
-    src/main/resources/brightsparklabs-macros.j2
+....
+src/main/resources/brightsparklabs-macros.j2
+....
 
-### Asciidoctorj Diagram
+=== Asciidoctorj Diagram
 
-The [`asciidoctorj-diagram`](https://github.com/asciidoctor/asciidoctorj-diagram) can be enabled
-as [per standard
-practice](https://asciidoctor.github.io/asciidoctor-gradle-plugin/development-3.x/user-guide/#diagram)
-in `build.gradle`:
+https://github.com/asciidoctor/asciidoctorj-diagram[asciidoctorj-diagram] can be enabled as
+https://asciidoctor.github.io/asciidoctor-gradle-plugin/development-3.x/user-guide/#diagram[per
+standard practice] in `build.gradle`:
 
-```groovy
+[source,groovy]
+----
 // Support asciidoctor-diagram image generation.
 asciidoctorj {
     modules {
         diagram.use()
     }
 }
-```
+----
 
-In order to make use of the [various diagramming
-formats](https://docs.asciidoctor.org/diagram-extension/latest/), the backing tool needs to be
-installed on the system.
+In order to make use of the https://docs.asciidoctor.org/diagram-extension/latest/[various
+diagramming formats], the backing tool needs to be installed on the system.
 
 The CLI tools listed below are installed in the containers used by the `asciidoctorPdfDocker` and
 `generateJekyllWebsite` tasks. I.e. These tasks can be used to create documents containing diagrams
 of the listed types without needing to install those tools on the local workstation.
 
-* [graphviz](https://graphviz.org/) `dot` - Allowing the use of `graphviz`/`plantuml` diagrams.
+https://graphviz.org/[graphviz] `dot`::
+Allowing the use of `graphviz`/`plantuml` diagrams.
++
+[source,asciidoc]
+----
+  Generate PNG file (with random name) from graphviz spec.
 
-        Generate PNG file (with random name) from graphviz spec.
+  [graphviz]
+  ....
+  digraph G {
+      main -> parse -> execute;
+      main -> init;
+      main -> cleanup;
+      execute -> make_string;
+      execute -> printf
+      init -> make_string;
+      main -> printf;
+      execute -> compare;
+  }
+  ....
 
-        [graphviz]
-        ....
-        digraph G {
-            main -> parse -> execute;
-            main -> init;
-            main -> cleanup;
-            execute -> make_string;
-            execute -> printf
-            init -> make_string;
-            main -> printf;
-            execute -> compare;
-        }
-        ....
+  Generate `my-diagram.svg` from plantuml spec.
 
-        Generate `my-diagram.svg` from plantuml spec.
+  [plantuml,my-diagram,svg]
+  ....
+  @startjson
+  {
+     "fruit":"Apple",
+     "size":"Large",
+     "color": ["Red", "Green"]
+  }
+  @endjson
+  ....
+----
+https://vega.github.io/vega/usage/#cli[vega-cli]::
+Allowing the use of `Vega`/`Vega-Lite` diagrams.
++
+....
+  [vega,bar-chart,svg]
+  ....
+  {
+    "description": "A simple bar chart with embedded data.",
+    "data": {
+      "values": [
+        {"a": "A","b": 28}, {"a": "B","b": 55}, {"a": "C","b": 43},
+        {"a": "D","b": 91}, {"a": "E","b": 81}, {"a": "F","b": 53},
+        {"a": "G","b": 19}, {"a": "H","b": 87}, {"a": "I","b": 52}
+      ]
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {"field": "a", "type": "ordinal"},
+      "y": {"field": "b", "type": "quantitative"}
+    }
+  }
+  ....
+....
 
-        [plantuml,my-diagram,svg]
-        ....
-        @startjson
-        {
-           "fruit":"Apple",
-           "size":"Large",
-           "color": ["Red", "Green"]
-        }
-        @endjson
-        ....
+== Jekyll Website
 
-* [vega-cli](https://vega.github.io/vega/usage/#cli) - Allowing the use of `Vega`/`Vega-Lite`
-  diagrams.
-
-        [vega,bar-chart,svg]
-        ....
-        {
-          "description": "A simple bar chart with embedded data.",
-          "data": {
-            "values": [
-              {"a": "A","b": 28}, {"a": "B","b": 55}, {"a": "C","b": 43},
-              {"a": "D","b": 91}, {"a": "E","b": 81}, {"a": "F","b": 53},
-              {"a": "G","b": 19}, {"a": "H","b": 87}, {"a": "I","b": 52}
-            ]
-          },
-          "mark": "bar",
-          "encoding": {
-            "x": {"field": "a", "type": "ordinal"},
-            "y": {"field": "b", "type": "quantitative"}
-          }
-        }
-        ....
-
-## Jekyll Website
-
-By default the generated Jekyll website uses the [Just the Docs](https://just-the-docs
-.com/docs/navigation-structure/) theme.
+By default the generated Jekyll website uses the
+https://just-the-docs%20.com/docs/navigation-structure/[Just the Docs] theme.
 
 By default all pages will appear as top level pages in the main navigation. If you want to setup
-nested navigation, you will need to set that up explicitly as detailed in the [Navigation
-Structure](https://just-the-docs.com/docs/navigation-structure/) documentation.
+nested navigation, you will need to set that up explicitly as detailed in the
+https://just-the-docs.com/docs/navigation-structure/[Navigation Structure] documentation.
 
 A basic example is:
 
-```
+....
 $ tree
 
 src
@@ -650,41 +680,42 @@ src
     └── index.adoc.j2
 
 $ cat src/docs/index.adoc.j2
-= Data Model
+ Data Model
 brightSPARK Labs <enquire@brightsparklabs.com>
 {{ brightsparklabs.add_default_attributes() }}
 :page-has_children: true
 
 $ head src/docs/component-x-data-model.adoc.j2
-= Component X Data Model
+ Component X Data Model
 brightSPARK Labs <enquire@brightsparklabs.com>
 {{ brightsparklabs.add_default_attributes() }}
 :page-parent: Data Model
-```
+....
 
 The attributes to note:
 
 * `:page-has_children: true` on the parent page to indicate supports nested pages.
 * `:page-parent: Data Model` on the child page to nest it under the parent page.
 
-**NOTE: Just the Docs only supports a maximum of 3 levels of nesting.**
+*NOTE: Just the Docs only supports a maximum of 3 levels of nesting.*
 
-### Website Dockerfile
+=== Website Dockerfile
 
-A Dockerfile for building the website can be generated via the `generateDockerfile` task.
-This can be leveraged to work with the [gradle-docker](https://github.com/brightsparklabs/gradle-docker)
-plugin by doing the following:
+A Dockerfile for building the website can be generated via the `generateDockerfile` task. This can
+be leveraged to work with the https://github.com/brightsparklabs/gradle-docker[gradle-docker] plugin
+by doing the following:
 
-* Make the `gradle-docker` plugin's `buildDockerImages` task depend on this plugin's
+* Make the `gradle-docker` plugin’s `buildDockerImages` task depend on this plugin’s
   `generateDockerfile` task.
-* Add the path of the generated Dockerfile to the `gradle-docker` plugin's configuration block in
+* Add the path of the generated Dockerfile to the `gradle-docker` plugin’s configuration block in
   the `dockerFileDefinitions` list.
 
-## Testing during development
+== Testing during development
 
 To test plugin changes during development:
 
-```bash
+[source,bash]
+----
 # bash
 
 # create a test application
@@ -702,8 +733,8 @@ git tag -a -m "Tag v0.0.0" 0.0.0
 
 # run using the development version of the plugin
 gradlew --include-build /path/to/gradle-docs <task>
-```
+----
 
-## Licenses
+== Licenses
 
 Refer to the `LICENSE` file for details.
