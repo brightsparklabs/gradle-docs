@@ -51,9 +51,6 @@ class DocsPlugin implements Plugin<Project> {
         return new Jinjava(jinjavaConfig)
     }()
 
-    /** Output asciidoc files mapped to the context which created them. */
-    Map<File, Map<String, Object>> outputFileToContextMap = [:]
-
     // -------------------------------------------------------------------------
     // IMPLEMENTATION: Plugin<Project>
     // -------------------------------------------------------------------------
@@ -265,6 +262,10 @@ class DocsPlugin implements Plugin<Project> {
                     from pdfOutputDir
                     into versionedPdfOutputDir
                 }
+
+                // Use the context variables for each output file to determine timestamps.
+                def jinjaPreProcessTask = (Jinja2PreProcessingTask) project.tasks.named('jinjaPreProcess').get()
+                def outputFileToContextMap = jinjaPreProcessTask.getOutputFileToContextMap()
 
                 outputFileToContextMap.each { adocFile, context ->
                     // Find the PDF file which got generated from the asciidoc file.

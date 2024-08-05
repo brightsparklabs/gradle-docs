@@ -44,17 +44,15 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
 
-
     // NOTE: Using closure because DumperOptions has no builder and we need to
     //       build instance variables in one statement.
     /** Yaml parser. */
-    private final Yaml yaml = { _ ->
+    private static final Yaml yaml = { _ ->
         def yamlOptions = new DumperOptions();
         yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         yamlOptions.setPrettyFlow(true);
         return new Yaml(yamlOptions)
     }()
-
 
     /* NOTE:
      *
@@ -65,14 +63,15 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     @Internal
     final DocsPluginExtension config = project.extensions.getByName('docsPluginConfig') as DocsPluginExtension
 
-    @Internal
     /** The relative path of this project's directory (i.e. the directory containing this project's `build.gradle` file) relative to the repo root. */
+    @Internal
     private final String projectRelativePath = getProjectRelativePath()
 
     /** The current time (used as a consistent default across files if timestamps are missing). */
     private final ZonedDateTime now = ZonedDateTime.now()
 
     /** Output asciidoc files mapped to the context which created them. */
+    @Internal
     private Map<File, Map<String, Object>> outputFileToContextMap = [:]
 
     /** Header to add to each Jinja2 file prior to rendering. */
@@ -197,8 +196,16 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     }
 
     // --------------------------------------------------------------------------
-    // PACKAGE METHODS
+    // PUBLIC METHODS
     // -------------------------------------------------------------------------
+
+    /**
+     *  Returns a map of output asciidoc files mapped to the context which created them.
+     * @return a map of output asciidoc files mapped to the context which created them.
+     */
+    Map<File, Map<String, Object>> getOutputFileToContextMap(){
+        return outputFileToContextMap;
+    }
 
     // NOTE: When the below methods were `private` they could not be called from within closures.
     //       So we have dropped the visibility modifier.
@@ -480,7 +487,7 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      * @param loadedDirVariablesFiles Cache of all the directory variables files previously loaded.
      * @return The dir variables pertaining to the template.
      */
-    Map<String, Object> getDirVariables(File dir, Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles) {
+    static Map<String, Object> getDirVariables(File dir, Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles) {
         final def dirName = dir.getAbsolutePath()
         final def extantDirVariables = loadedDirVariablesFiles.get(dirName)
         if (extantDirVariables != null) {
