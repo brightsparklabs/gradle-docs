@@ -293,10 +293,14 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         ]
         context.put('output_file', outputFileContext)
 
+        // ------------------------------------------------------------
+        // TEMPLATE FILE VARIABLES
+        // ------------------------------------------------------------
+
         // Include file vars if present.
-        File fileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
-        if (fileVariables.exists()) {
-            String fileVariablesYamlText = fileVariables.text
+        File templateFileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
+        if (templateFileVariables.exists()) {
+            String fileVariablesYamlText = templateFileVariables.text
             templateFileContext.put('vars', yaml.load(fileVariablesYamlText))
 
             String fileVariablesSrcFile = templateFile.getPath().replaceFirst(
@@ -309,58 +313,19 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
             if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp) && fileVariablesFileLastCommit.hash != "unspecified") {
                 outputFileContext.last_commit = fileVariablesFileLastCommit
             }
-            fileVariables.delete()
+            templateFileVariables.delete()
         }
         logger.info("Using `template_file` context:\n${yaml.dump(templateFileContext)}")
+
+        // ------------------------------------------------------------
+        // RENDER TEMPLATES
+        // ------------------------------------------------------------
 
         // Process instances if present.
         File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
         if (instancesDir.exists() && instancesDir.isDirectory()) {
             instancesDir.traverse(type: FileType.FILES) { instanceFile ->
-                // Ignore file if it is not a yaml file
-                if (!instanceFile.name.endsWith(".yaml")) {
-                    logger.info("Skipping non-YAML instance file [${instanceFile}]")
-                    return
-                }
-
-                String instanceSrcFile = instanceFile.getPath().replaceFirst(
-                        jinjaOutputDir.toString(),
-                        new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
-                        )
-                Map<String, Object> instanceFileLastCommit = getLastCommit(projectRelativePath + instanceSrcFile, now)
-                // We want to output the file at the same level as the template file.
-                String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
-                File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
-                Map<String, Object> instanceContext = [
-                    name       : instanceFile.getName(),
-                    // Relative to docs directory.
-                    path       : instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
-                    last_commit: instanceFileLastCommit,
-                ]
-                context.put('instance_file', instanceContext)
-
-                outputFileContext.name = instanceOutputFileName
-                outputFileContext.path = instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', '')
-
-                String instanceFileVariablesYamlText = instanceFile.text
-                instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
-
-                logger.info("Using `instance_file` context :\n${yaml.dump(instanceContext)}")
-
-                // Cache current last commit so next instance can cleanly compare.
-                def cachedLastCommit = outputFileContext.last_commit
-                if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified") {
-                    outputFileContext.last_commit = instanceFileLastCommit
-                }
-
-                logger.debug("Using context:\n${yaml.dump(context)}")
-                writeTemplateToFile(templateFile, context, instanceOutputFile)
-
-                // Restore cached last commit so next instance can cleanly compare.
-                templateFileContext.last_commit = cachedLastCommit
-
-                // Clean out context and instance file.
-                context.remove('instance_file')
+                renderInstanceFile(instanceFile, templateFile, context)
                 instanceFile.delete()
             }
             instancesDir.delete()
@@ -375,6 +340,60 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         context.remove('template_file')
         context.remove('output_file')
         templateFile.delete()
+    }
+
+    /**
+     * Renders the specified instance file against the given context variables.
+     *
+     * @param instanceFile The instance file to render.
+     * @param templateFile The corresponding template file for the instance file.
+     * @param context The context variables for the template.
+     */
+    def renderInstanceFile(File instanceFile, File templateFile, Map<String, Object> context) {
+        final File jinjaOutputDir = jinjaOutputDirProperty.get().asFile
+
+        // Create an copy of the context since it needs to be mutated.
+        def mutatedContext = context.getClass().<Map<String, Object>> newInstance(context)
+
+        // Ignore file if it is not a yaml file
+        if (!instanceFile.name.endsWith(".yaml")) {
+            logger.info("Skipping non-YAML instance file [${instanceFile}]")
+            return
+        }
+
+        String instanceSrcFile = instanceFile.getPath().replaceFirst(
+                jinjaOutputDir.toString(),
+                new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
+                )
+        Map<String, Object> instanceFileLastCommit = getLastCommit(projectRelativePath + instanceSrcFile, now)
+        // We want to output the file at the same level as the template file.
+        String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
+        File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
+        Map<String, Object> instanceContext = [
+            name       : instanceFile.getName(),
+            // Relative to docs directory.
+            path       : instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
+            last_commit: instanceFileLastCommit,
+        ]
+        mutatedContext.put('instance_file', instanceContext)
+
+        final Map<String, Object> outputFileContext = mutatedContext.output_file as Map<String, Object>
+        outputFileContext.name = instanceOutputFileName
+        outputFileContext.path = instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', '')
+
+        String instanceFileVariablesYamlText = instanceFile.text
+        instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
+
+        logger.info("Using `instance_file` context :\n${yaml.dump(instanceContext)}")
+
+        // Cache current last commit so next instance can cleanly compare.
+        def cachedLastCommit = outputFileContext.last_commit
+        if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified") {
+            outputFileContext.last_commit = instanceFileLastCommit
+        }
+
+        logger.debug("Using context:\n${yaml.dump(mutatedContext)}")
+        writeTemplateToFile(templateFile, mutatedContext, instanceOutputFile)
     }
 
     /**
@@ -407,7 +426,8 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
             outputFile.text = jinjava.render(inputText, context)
             jinjava.setResourceLocator(originalResourceLocator)
         } catch (Exception ex) {
-            throw new Exception("Could not process [${templateFile}] - ${ex.message}")
+            logger.error("Could not process `${templateFile}`", ex)
+            throw new Exception("Could not process `${templateFile}` - ${ex.message}")
         }
     }
 
