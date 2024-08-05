@@ -11,19 +11,12 @@ import com.google.common.base.Charsets
 import com.google.common.io.Resources
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
-import com.hubspot.jinjava.loader.CascadingResourceLocator
-import com.hubspot.jinjava.loader.ClasspathResourceLocator
-import com.hubspot.jinjava.loader.FileLocator
-import groovy.io.FileType
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.UnknownTaskException
-import org.yaml.snakeyaml.DumperOptions
-import org.yaml.snakeyaml.Yaml
 
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -34,12 +27,6 @@ class DocsPlugin implements Plugin<Project> {
     // -------------------------------------------------------------------------
     // CONSTANTS
     // -------------------------------------------------------------------------
-
-    /**
-     * Name of the default logo file in the resources directory. This is also used as the
-     * destination file name when copying client supplied logos.
-     */
-    public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
 
     /**
      * The default set of options that will be provided to AsciiDoctor for rendering the document.
@@ -55,18 +42,8 @@ class DocsPlugin implements Plugin<Project> {
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
 
-    // NOTE: Using closure because DumperOptions has no builder and we need to
-    //       build instance variables in one statement.
-    /** Yaml parser. */
-    Yaml yaml = { _ ->
-        def yamlOptions = new DumperOptions();
-        yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        yamlOptions.setPrettyFlow(true);
-        return new Yaml(yamlOptions)
-    }()
-
     /** Jinja2 processor. */
-    Jinjava jinjava = { _ ->
+    public static Jinjava jinjava = { _ ->
         JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
                 // Fail if templates reference non-existent variables
                 .withFailOnUnknownTokens(true)
@@ -76,12 +53,6 @@ class DocsPlugin implements Plugin<Project> {
 
     /** Output asciidoc files mapped to the context which created them. */
     Map<File, Map<String, Object>> outputFileToContextMap = [:]
-
-    /** Header to add to each Jinja2 file prior to rendering. */
-    def templateHeader = ""
-
-    /** Footer to add to each Jinja2 file prior to rendering. */
-    def templateFooter = ""
 
     // -------------------------------------------------------------------------
     // IMPLEMENTATION: Plugin<Project>
@@ -93,29 +64,13 @@ class DocsPlugin implements Plugin<Project> {
         final def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
         //        project.extensions.docsPluginConfig.extensions.create('website', DocsPluginExtension.WebsiteExtension)
 
-        if (config.autoImportMacros) {
-            templateHeader += '{% import "brightsparklabs-macros.j2" as brightsparklabs %}\n'
-        }
-
-        final File templateHeaderFile = project.file(config.templateHeaderFile)
-        if (templateHeaderFile.exists()) {
-            project.logger.info("Templates will be prepended with header from [${templateHeaderFile}]")
-            templateHeader += templateHeaderFile.text
-        }
-
-        final File templateFooterFile = project.file(config.templateFooterFile)
-        if (templateFooterFile.exists()) {
-            project.logger.info("Templates will be appended with footer from [${templateFooterFile}]")
-            templateFooter += templateFooterFile.text
-        }
-
         final File baseOutputDirectory = project.file('build/brightsparklabs/docs')
         final File jinjaOutputDir = new File(baseOutputDirectory, 'jinjaProcessed')
         final File dockerfileOutputDir = new File(baseOutputDirectory, 'dockerfile')
         final File dockerPdfOutputDir = new File(baseOutputDirectory, 'pdf')
         final File websiteOutputDir = new File(baseOutputDirectory, 'website')
 
-        setupJinjaPreProcessingTasks(project, config, jinjaOutputDir)
+        setupJinjaPreProcessingTasks(project, jinjaOutputDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
         setupDockerFileTask(project, config, dockerfileOutputDir)
 
@@ -138,16 +93,15 @@ class DocsPlugin implements Plugin<Project> {
      * Adds the Jinja2 pre-processing task.
      *
      * @param project Gradle project to add the task to.
-     * @param config Configuration for this plugin.
-     * @param jinjaOutputDir Directory to output rendered Jinja2 templates.
+     * @param _jinjaOutputDir Directory to output rendered Jinja2 templates.
      */
-    private void setupJinjaPreProcessingTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
+    private static void setupJinjaPreProcessingTasks(Project project, File _jinjaOutputDir) {
         project.tasks.register('cleanJinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jinja2 processed documents out of the build directory."
 
             doLast {
-                project.delete jinjaOutputDir
+                project.delete _jinjaOutputDir
                 // Delete asciidoctor generated documents else renamed/deleted docs  may remain.
                 def asciidoctorOutputDir = project.file("build/docs")
                 project.delete asciidoctorOutputDir
@@ -167,218 +121,14 @@ class DocsPlugin implements Plugin<Project> {
             project.tasks.named('clean'){ dependsOn 'cleanJinjaPreProcess'}
         }
 
-        project.tasks.register('jinjaPreProcess') {
+        project.tasks.register('jinjaPreProcess', Jinja2PreProcessingTask) {
             group = "brightSPARK Labs - Docs"
             description = "Performs Jinja2 pre-processing on documents."
 
-            /* Calculate the relative path of this project's directory (i.e. the directory
-             * containing this project's `build.gradle` file) relative to the repo root.
-             *
-             * Generally the relative path will simply by blank (i.e. `build.gradle` resides at the
-             * root of the repo). However, if the project is part of a Gradle multi-project build,
-             * then this will not be the case.
-             *
-             * This is variable is needed so that file path can be built for use in `git` commands
-             * which reference files in relation to the repo's root directory.
-             */
-            String projectRelativePath = "";
-            if (!(project.projectDir.toString() == project.rootDir.toString())) {
-                // This is a subproject in a Gradle multi-project build. Calculate relative path.
-                // The `/` subtract/add ensures the string ends with a slash.
-                projectRelativePath = project.projectDir.toString() - project.rootDir.toString() - "/" + "/"
-            }
-
-            doLast {
-                // Copy the entire directory and render files in-place to make
-                // keeping output folder structures intact easier.
-                project.delete jinjaOutputDir
-                jinjaOutputDir.mkdirs()
-                project.copy {
-                    from project.file(config.docsDir)
-                    into jinjaOutputDir
-                }
-
-                def buildImagesDir = project.file(config.buildImagesDir)
-                project.delete buildImagesDir
-                buildImagesDir.mkdirs()
-                project.copy {
-                    from project.file(config.sourceImagesDir)
-                    into buildImagesDir
-                }
-
-                // Copy logo into build directory so it can be referenced in Asciidoc.
-                final Path outputFile = Paths.get("${project.projectDir}/${config.buildImagesDir}/${DEFAULT_LOGO_FILENAME}")
-                try {
-                    final logoBytes = config.logoFile
-                            .map { path -> path.toFile().readBytes() }
-                            .orElse(getClass().getResourceAsStream("/${DEFAULT_LOGO_FILENAME}").readAllBytes());
-                    outputFile.withOutputStream { stream -> stream.write(logoBytes) }
-                } catch (Exception ex) {
-                    logger.error("Could not copy logo file to build directory", ex)
-                    throw ex
-                }
-
-                def now = ZonedDateTime.now()
-                final Map<String, Object> context = getGlobalContext(project, config, now)
-
-                // ------------------------------------------------------------
-                // ROOT JINJA2 CONTEXT
-                // ------------------------------------------------------------
-
-                final File variablesFile = project.file(config.variablesFile)
-                if (variablesFile.exists()) {
-                    project.logger.info("Adding global variables to Jinja2 from [${variablesFile}]")
-
-                    String yamlText = variablesFile.text
-                    context.put('vars', yaml.load(yamlText))
-
-                    Map<String, Object> variablesFileLastCommit = getLastCommit(projectRelativePath + config.variablesFile, now)
-                    context.put('vars_file_last_commit', variablesFileLastCommit)
-                }
-                logger.info("Using `root` context:\n${yaml.dump(context)}")
-
-                // All directory variable files which have been loaded.
-                // Key is the full path to the dir, value is a map of the variables from the dir.
-                final Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles = [:]
-
-                // Process templates.
-                jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
-                    // Ignore file if it is not a Jinja2 template
-                    if (!templateFile.name.endsWith(".j2")) {
-                        logger.info("Skipping non-Jinja2 template [${templateFile}]")
-                        return
-                    }
-
-                    // ------------------------------------------------------------
-                    // TEMPLATE DIR CONTEXT
-                    // ------------------------------------------------------------
-                    final def templateDir = templateFile.getParentFile()
-                    final def templateDirVariables = getDirVariables(templateDir, loadedDirVariablesFiles)
-                    final def templateDirRelativePath = templateDir.getPath().replaceFirst(
-                            jinjaOutputDir.toString(),
-                            new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
-                            ).replaceFirst(config.docsDir + '/?', '')
-                    final def templateDirContext = [
-                        path: templateDirRelativePath,
-                        vars: templateDirVariables]
-                    context.put('template_dir', templateDirContext)
-
-                    // ------------------------------------------------------------
-                    // TEMPLATE FILE CONTEXT
-                    // ------------------------------------------------------------
-                    String templateSrcFile = templateFile.getPath().replaceFirst(
-                            jinjaOutputDir.toString(),
-                            new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
-                            )
-                    Map<String, Object> templateFileLastCommit = getLastCommit(projectRelativePath + templateSrcFile, now)
-                    String templateOutputFileName = templateFile.getName().replaceFirst(/\.j2$/, '')
-                    File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
-                    Map<String, Object> templateFileContext = [
-                        name       : templateFile.getName(),
-                        // Relative to docs directory (`toString` to prevent GString in map).
-                        path       : "${templateDirRelativePath}/${templateFile.getName()}".toString(),
-                        last_commit: templateFileLastCommit,
-                    ]
-                    context.put('template_file', templateFileContext)
-
-                    // ------------------------------------------------------------
-                    // OUTPUT FILE CONTEXT
-                    // ------------------------------------------------------------
-                    Map<String, Object> outputFileContext = [
-                        name       : templateOutputFileName,
-                        // Relative to output directory.
-                        path       : templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
-                        last_commit: templateFileLastCommit,
-                    ]
-                    context.put('output_file', outputFileContext)
-
-                    // Include file vars if present.
-                    File fileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
-                    if (fileVariables.exists()) {
-                        String fileVariablesYamlText = fileVariables.text
-                        templateFileContext.put('vars', yaml.load(fileVariablesYamlText))
-
-                        String fileVariablesSrcFile = templateFile.getPath().replaceFirst(
-                                jinjaOutputDir.toString(),
-                                new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
-                                ) + '.yaml'
-                        Map<String, Object> fileVariablesFileLastCommit = getLastCommit(projectRelativePath + fileVariablesSrcFile, now)
-                        templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
-                        // Make sure that if we want to replace the commit hash that it actually has a commit hash to replace it with.
-                        if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp) && fileVariablesFileLastCommit.hash != "unspecified") {
-                            outputFileContext.last_commit = fileVariablesFileLastCommit
-                        }
-                        fileVariables.delete()
-                    }
-                    logger.info("Using `template_file` context:\n${yaml.dump(templateFileContext)}")
-
-                    // Process instances if present.
-                    File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
-                    if (instancesDir.exists() && instancesDir.isDirectory()) {
-                        instancesDir.traverse(type: FileType.FILES) { instanceFile ->
-                            // Ignore file if it is not a yaml file
-                            if (!instanceFile.name.endsWith(".yaml")) {
-                                logger.info("Skipping non-YAML instance file [${instanceFile}]")
-                                return
-                            }
-
-                            String instanceSrcFile = instanceFile.getPath().replaceFirst(
-                                    jinjaOutputDir.toString(),
-                                    new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
-                                    )
-                            Map<String, Object> instanceFileLastCommit = getLastCommit(projectRelativePath + instanceSrcFile, now)
-                            // We want to output the file at the same level as the template file.
-                            String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
-                            File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
-                            Map<String, Object> instanceContext = [
-                                name       : instanceFile.getName(),
-                                // Relative to docs directory.
-                                path       : instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
-                                last_commit: instanceFileLastCommit,
-                            ]
-                            context.put('instance_file', instanceContext)
-
-                            outputFileContext.name = instanceOutputFileName
-                            outputFileContext.path = instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', '')
-
-                            String instanceFileVariablesYamlText = instanceFile.text
-                            instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
-
-                            logger.info("Using `instance_file` context :\n${yaml.dump(instanceContext)}")
-
-                            // Cache current last commit so next instance can cleanly compare.
-                            def cachedLastCommit = outputFileContext.last_commit
-                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified") {
-                                outputFileContext.last_commit = instanceFileLastCommit
-                            }
-
-                            logger.debug("Using context:\n${yaml.dump(context)}")
-                            writeTemplateToFile(templateFile, context, instanceOutputFile)
-
-                            // Restore cached last commit so next instance can cleanly compare.
-                            templateFileContext.last_commit = cachedLastCommit
-
-                            // Clean out context and instance file.
-                            context.remove('instance_file')
-                            instanceFile.delete()
-                        }
-                        instancesDir.delete()
-                    } else {
-                        // No instances, just process in place.
-                        logger.debug("Using context:\n${yaml.dump(context)}")
-                        writeTemplateToFile(templateFile, context, templateOutputFile)
-                    }
-
-                    // Clean out context and template.
-                    context.remove('template_dir')
-                    context.remove('template_file')
-                    context.remove('output_file')
-                    templateFile.delete()
-                }
-
-                project.logger.lifecycle("Template files rendered to `${jinjaOutputDir.getAbsolutePath()}`.")
-            }
+            templatesDirProperty.set(new File(config.docsDir))
+            jinjaOutputDirProperty.set(_jinjaOutputDir)
         }
+
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
     }
 
@@ -390,7 +140,7 @@ class DocsPlugin implements Plugin<Project> {
      * @param now The current time (passed in for external consistency).
      * @return The global context to use for rendering templates.
      */
-    private static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
+    static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
         final Map<String, Object> sysContext = [
             project_name: Optional.ofNullable(project.name).map{it.trim()}.orElse("unspecified"),
             project_description: Optional.ofNullable(project.description).map{it.trim()}.orElse("unspecified"),
@@ -407,41 +157,6 @@ class DocsPlugin implements Plugin<Project> {
         ]
 
         return context
-    }
-
-
-    /**
-     * Renders the supplied template against the supplied context and writes
-     * it to an output file.
-     *
-     * @param templateFile Template to render.
-     * @param context Context to use to fill the template.
-     * @param outputFile File to write the result to.
-     */
-    private void writeTemplateToFile(File templateFile, Map<String, Object> context, File outputFile) {
-        try {
-            // Create an snapshot of the context since it is mutable.
-            def snapshot = context.getClass().<Map<String, Object>>newInstance(context)
-            outputFileToContextMap[outputFile] = snapshot
-
-            // Support Jinja2 imports from classpath and relative to template file's directory.
-            Path absoluteDocsDir = context.sys.project_path.resolve(context.config.docsDir)
-            File absoluteTemplateDir = absoluteDocsDir.resolve(context.template_dir.path).toFile()
-            def resourceLocator = new CascadingResourceLocator(new ClasspathResourceLocator(), new FileLocator(absoluteTemplateDir))
-
-            // Render template to file.
-            def originalResourceLocator = jinjava.getResourceLocator()
-            jinjava.setResourceLocator(resourceLocator)
-            final def inputText = [
-                templateHeader,
-                templateFile.text,
-                templateFooter
-            ].join('\n')
-            outputFile.text = jinjava.render(inputText, context)
-            jinjava.setResourceLocator(originalResourceLocator)
-        } catch (Exception ex) {
-            throw new Exception("Could not process [${templateFile}] - ${ex.message}")
-        }
     }
 
     /**
@@ -510,36 +225,6 @@ class DocsPlugin implements Plugin<Project> {
             iso_offset_space: isoOffsetString.replace('T', ' '),
             iso_offset_safe : isoOffsetString.replace(':', ''),
         ]
-    }
-
-    /**
-     * Returns the variables from the `variables.yaml` file in the template file's directory. Or empty if no variables are present.
-     * This method will cache the result in the `loadedDirVariablesFiles` (i.e. will modify it).
-     *
-     * @param dir The directory the template is from.
-     * @param loadedDirVariablesFiles Cache of all the directory variables files previously loaded.
-     * @return The dir variables pertaining to the template.
-     */
-    private Map<String, Object> getDirVariables(File dir, Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles) {
-        final def dirName = dir.getAbsolutePath()
-        final def extantDirVariables = loadedDirVariablesFiles.get(dirName)
-        if (extantDirVariables != null) {
-            return extantDirVariables.orElse([:])
-        }
-
-        final File dirVariablesFile = new File(dir, "variables.yaml")
-        if (!dirVariablesFile.exists()) {
-            loadedDirVariablesFiles.put(dirName, Optional.empty())
-            return [:]
-        }
-
-        final def yamlText = dirVariablesFile.text
-        final def dirVariables = yaml.<Map<String, Object>> load(yamlText)
-        final def result = Optional.of(dirVariables)
-        loadedDirVariablesFiles.put(dirName, result)
-        // Delete the variables file since we do not want it in the final output dir.
-        dirVariablesFile.delete()
-        return dirVariables
     }
 
     /**
