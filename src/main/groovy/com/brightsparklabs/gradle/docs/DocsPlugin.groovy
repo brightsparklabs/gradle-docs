@@ -63,11 +63,12 @@ class DocsPlugin implements Plugin<Project> {
 
         final File baseOutputDirectory = project.file('build/brightsparklabs/docs')
         final File jinjaOutputDir = new File(baseOutputDirectory, 'jinjaProcessed')
+        final File buildscriptVarsDir = new File(baseOutputDirectory, 'buildscriptVariables')
         final File dockerfileOutputDir = new File(baseOutputDirectory, 'dockerfile')
         final File dockerPdfOutputDir = new File(baseOutputDirectory, 'pdf')
         final File websiteOutputDir = new File(baseOutputDirectory, 'website')
 
-        setupJinjaPreProcessingTasks(project, jinjaOutputDir)
+        setupJinjaPreProcessingTasks(project, jinjaOutputDir, buildscriptVarsDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
         setupDockerFileTask(project, config, dockerfileOutputDir)
 
@@ -90,15 +91,16 @@ class DocsPlugin implements Plugin<Project> {
      * Adds the Jinja2 pre-processing task.
      *
      * @param project Gradle project to add the task to.
-     * @param _jinjaOutputDir Directory to output rendered Jinja2 templates.
+     * @param jinjaOutputDir Directory to output rendered Jinja2 templates.
+     * @param buildscriptVariablesDir Directory containing any buildscript created variables.
      */
-    private static void setupJinjaPreProcessingTasks(Project project, File _jinjaOutputDir) {
+    private static void setupJinjaPreProcessingTasks(Project project, File jinjaOutputDir, File buildscriptVariablesDir) {
         project.tasks.register('cleanJinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jinja2 processed documents out of the build directory."
 
             doLast {
-                project.delete _jinjaOutputDir
+                project.delete jinjaOutputDir
                 // Delete asciidoctor generated documents else renamed/deleted docs  may remain.
                 def asciidoctorOutputDir = project.file("build/docs")
                 project.delete asciidoctorOutputDir
@@ -115,7 +117,7 @@ class DocsPlugin implements Plugin<Project> {
                     description = "Cleans the documentation."
                 }
             }
-            project.tasks.named('clean'){ dependsOn 'cleanJinjaPreProcess'}
+            project.tasks.named('clean') { dependsOn 'cleanJinjaPreProcess' }
         }
 
         project.tasks.register('jinjaPreProcess', Jinja2PreProcessingTask) {
@@ -123,7 +125,8 @@ class DocsPlugin implements Plugin<Project> {
             description = "Performs Jinja2 pre-processing on documents."
 
             templatesDirProperty.set(new File(config.docsDir))
-            jinjaOutputDirProperty.set(_jinjaOutputDir)
+            buildscriptVariablesDirProperty.set(buildscriptVariablesDir.getAbsolutePath())
+            jinjaOutputDirProperty.set(jinjaOutputDir)
         }
 
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
@@ -139,13 +142,13 @@ class DocsPlugin implements Plugin<Project> {
      */
     static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
         final Map<String, Object> sysContext = [
-            project_name: Optional.ofNullable(project.name).map{it.trim()}.orElse("unspecified"),
-            project_description: Optional.ofNullable(project.description).map{it.trim()}.orElse("unspecified"),
-            project_version: Optional.ofNullable(project.version).map{it.trim()}.orElse("unspecified"),
-            project_path: project.projectDir.toPath(),
-            build_timestamp: now,
+            project_name             : Optional.ofNullable(project.name).map { it.trim() }.orElse("unspecified"),
+            project_description      : Optional.ofNullable(project.description).map { it.trim() }.orElse("unspecified"),
+            project_version          : Optional.ofNullable(project.version).map { it.trim() }.orElse("unspecified"),
+            project_path             : project.projectDir.toPath(),
+            build_timestamp          : now,
             build_timestamp_formatted: getFormattedTimestamps(now),
-            repo_last_commit: getLastCommit('.', now),
+            repo_last_commit         : getLastCommit('.', now),
         ]
 
         final Map<String, Object> context = [
@@ -370,13 +373,13 @@ class DocsPlugin implements Plugin<Project> {
                 }
             }
 
-            project.tasks.named('asciidoctor') {dependsOn 'jinjaPreProcess' }
-            project.tasks.named('asciidoctorPdf') {dependsOn 'jinjaPreProcess' }
-            project.tasks.named('bslAsciidoctor') {dependsOn 'asciidoctor' }
-            project.tasks.named('asciidoctorPdf') {dependsOn 'asciidoctor' }
-            project.tasks.named('bslAsciidoctorPdf') {dependsOn 'asciidoctorPdf' }
-            project.tasks.named('bslAsciidoctorPdfVersioned') {dependsOn 'bslAsciidoctorPdf' }
-            project.tasks.named('build') {dependsOn 'bslAsciidoctorPdfVersioned' }
+            project.tasks.named('asciidoctor') { dependsOn 'jinjaPreProcess' }
+            project.tasks.named('asciidoctorPdf') { dependsOn 'jinjaPreProcess' }
+            project.tasks.named('bslAsciidoctor') { dependsOn 'asciidoctor' }
+            project.tasks.named('asciidoctorPdf') { dependsOn 'asciidoctor' }
+            project.tasks.named('bslAsciidoctorPdf') { dependsOn 'asciidoctorPdf' }
+            project.tasks.named('bslAsciidoctorPdfVersioned') { dependsOn 'bslAsciidoctorPdf' }
+            project.tasks.named('build') { dependsOn 'bslAsciidoctorPdfVersioned' }
         }
     }
 

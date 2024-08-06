@@ -11,7 +11,9 @@ import com.hubspot.jinjava.loader.CascadingResourceLocator
 import com.hubspot.jinjava.loader.ClasspathResourceLocator
 import com.hubspot.jinjava.loader.FileLocator
 import groovy.io.FileType
+import groovy.transform.Immutable
 import org.gradle.api.DefaultTask
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
@@ -87,6 +89,10 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     /** Directory containing the source templates to render. */
     @InputDirectory
     def templatesDirProperty = project.objects.directoryProperty()
+
+    /** Directory containing any buildscript created variables. */
+    @Input
+    def buildscriptVariablesDirProperty = project.objects.property(String.class)
 
     /** Directory to store the rendered templates in. */
     @OutputDirectory
@@ -167,16 +173,9 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         // ROOT JINJA2 CONTEXT
         // ------------------------------------------------------------
 
-        final File variablesFile = project.file(config.variablesFile)
-        if (variablesFile.exists()) {
-            project.logger.info("Adding global variables to Jinja2 from [${variablesFile}]")
-
-            String yamlText = variablesFile.text
-            context.put('vars', yaml.load(yamlText))
-
-            Map<String, Object> variablesFileLastCommit = getLastCommit(projectRelativePath + config.variablesFile, now)
-            context.put('vars_file_last_commit', variablesFileLastCommit)
-        }
+        final globalVariablesFile = project.file(config.variablesFile)
+        final VariablesFileData variablesFileData = readVariablesFile(globalVariablesFile)
+        context.putAll(variablesFileData.toMap())
         logger.info("Using `root` context:\n${yaml.dump(context)}")
 
         // All directory variable files which have been loaded.
@@ -199,6 +198,9 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     // PUBLIC METHODS
     // -------------------------------------------------------------------------
 
+    // NOTE: When the below methods were `private` they could not be called from within closures.
+    //       So we have dropped the visibility modifier.
+
     /**
      *  Returns a map of output asciidoc files mapped to the context which created them.
      * @return a map of output asciidoc files mapped to the context which created them.
@@ -207,8 +209,84 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         return outputFileToContextMap;
     }
 
-    // NOTE: When the below methods were `private` they could not be called from within closures.
-    //       So we have dropped the visibility modifier.
+    /**
+     * Loads the values from the specified variables file. The file must reside
+     * within the `config.docsDir`.
+     *
+     * @param variablesFile File to read.
+     * @return Results from reading the file.
+     */
+    VariablesFileData readVariablesFile(File variablesFile) {
+        Map<String, Object> vars = [:]
+        Map<String, Object> varsFileLastCommit = [:]
+        Map<String, Object> buildscriptVars = [:]
+
+        final String variablesFilePathRelativeToDocsProject = getPathRelativeToDocsProject(variablesFile)
+
+        if (variablesFile.exists()) {
+            project.logger.info("Adding variables to Jinja2 from [${variablesFile}]")
+
+            String yamlText = variablesFile.text
+            vars = yaml.load(yamlText)
+
+            varsFileLastCommit = getLastCommit(projectRelativePath + variablesFilePathRelativeToDocsProject, now)
+        }
+
+        final File buildscriptVariablesDir = new File(buildscriptVariablesDirProperty.get())
+        final File buildscriptVariablesFile = new File(buildscriptVariablesDir, variablesFilePathRelativeToDocsProject)
+        if (buildscriptVariablesFile.exists()) {
+            project.logger.info("Adding buildscript variables to Jinja2 from [${buildscriptVariablesFile}]")
+
+            String yamlText = buildscriptVariablesFile.text
+            buildscriptVars = yaml.load(yamlText)
+        }
+
+        return new VariablesFileData(vars, varsFileLastCommit, buildscriptVars)
+    }
+
+    /**
+     * Finds the corresponding source file for a file currently in the Jinja2 output directory.
+     * @param fileInJinja2OutputDir The file which currently resides in the Jinja2 output directory.
+     * @return The corresponding source file which the file was copied from.
+     */
+    File jinja2OutputDirPathToSrcDirPath(File fileInJinja2OutputDir) {
+        // NOTE: The `new File` call cleanly removes any trailing slashes on the `config.docsDir` value.
+        final String srcDirPath = new File(config.docsDir).toString()
+
+        final String jinja2OutputDirPath = jinjaOutputDirProperty.get().asFile.toString()
+        /*
+         * Replace the path to the jinja2Output directory with the path to the source directory
+         *
+         * E.g.
+         *
+         *   In:  /path/to/my-project/build/brightsparklabs/docs/jinjaProcessed/intro/overview.adoc.j2
+         *   Out: src/docs/intro/overview.adoc.j2
+         */
+        final String srcFilePath = fileInJinja2OutputDir.getPath().replaceFirst(jinja2OutputDirPath, srcDirPath)
+
+        final File srcFile = project.file(srcFilePath)
+        return srcFile
+    }
+
+    /**
+     * Returns the relative path for a file in relation to the current project (or subproject if part of a multi-build project).
+     *
+     * E.g.
+     *
+     *   In:  /path/to/my-project/subproject/docs/src/docs/intro/overview.adoc.j2
+     *   Out: src/docs/intro/overview.adoc.j2
+     *
+     * @param file
+     * @return
+     */
+    String getPathRelativeToDocsProject(File file) {
+        // The absolute path to this docs project.
+        final Path pathToDocsProject = Path.of(project.file('.').getAbsolutePath())
+
+        // Calculate the path to the file from this docs project.
+        final String relativePath = pathToDocsProject.relativize(file.toPath())
+        return relativePath
+    }
 
     /**
      * Calculate the relative path of this project's directory (i.e. the directory
@@ -297,24 +375,24 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         // TEMPLATE FILE VARIABLES
         // ------------------------------------------------------------
 
-        // Include file vars if present.
-        File templateFileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
-        if (templateFileVariables.exists()) {
-            String fileVariablesYamlText = templateFileVariables.text
-            templateFileContext.put('vars', yaml.load(fileVariablesYamlText))
+        final File templateFileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
 
-            String fileVariablesSrcFile = templateFile.getPath().replaceFirst(
-                    jinjaOutputDir.toString(),
-                    new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
-                    ) + '.yaml'
-            Map<String, Object> fileVariablesFileLastCommit = getLastCommit(projectRelativePath + fileVariablesSrcFile, now)
-            templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
-            // Make sure that if we want to replace the commit hash that it actually has a commit hash to replace it with.
-            if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp) && fileVariablesFileLastCommit.hash != "unspecified") {
-                outputFileContext.last_commit = fileVariablesFileLastCommit
+        // Find the corresponding file from the source directory so we can use git on it.
+        final File templateFileVariablesSrc = jinja2OutputDirPathToSrcDirPath(templateFileVariables)
+        final VariablesFileData variablesFileData = readVariablesFile(templateFileVariablesSrc)
+        templateFileContext.putAll(variablesFileData.toMap())
+
+        // If the template variables file exists, see if it has later modification timestamps.
+        if (templateFileVariables.exists()) {
+            final def varsFileLastCommit = variablesFileData.varsFileLastCommit
+            if (varsFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp) && varsFileLastCommit.hash != "unspecified") {
+                outputFileContext.last_commit = varsFileLastCommit
             }
+
+            // Delete the template variables file from output directory as we only want the rendered templates.
             templateFileVariables.delete()
         }
+
         logger.info("Using `template_file` context:\n${yaml.dump(templateFileContext)}")
 
         // ------------------------------------------------------------
@@ -322,12 +400,13 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         // ------------------------------------------------------------
 
         // Process instances if present.
-        File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
+        final File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
         if (instancesDir.exists() && instancesDir.isDirectory()) {
             instancesDir.traverse(type: FileType.FILES) { instanceFile ->
                 renderInstanceFile(instanceFile, templateFile, context)
                 instanceFile.delete()
             }
+            // Delete the instance file from output directory as we only want the rendered templates.
             instancesDir.delete()
         } else {
             // No instances, just process in place.
@@ -335,10 +414,11 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
             writeTemplateToFile(templateFile, context, templateOutputFile)
         }
 
-        // Clean out context and template.
+        // Clean out context.
         context.remove('template_dir')
         context.remove('template_file')
         context.remove('output_file')
+        // Delete the template file from output directory as we only want the rendered templates.
         templateFile.delete()
     }
 
@@ -361,34 +441,32 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
             return
         }
 
-        String instanceSrcFile = instanceFile.getPath().replaceFirst(
-                jinjaOutputDir.toString(),
-                new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
-                )
-        Map<String, Object> instanceFileLastCommit = getLastCommit(projectRelativePath + instanceSrcFile, now)
+        // Find the corresponding file from the source directory so we can use git on it.
+        final File instanceFileSrc = jinja2OutputDirPathToSrcDirPath(instanceFile)
+        final VariablesFileData variablesFileData = readVariablesFile(instanceFileSrc)
+        final String instanceFileSrcRelativePath = project.file(config.docsDir).toPath().relativize(instanceFileSrc.toPath())
+
         // We want to output the file at the same level as the template file.
-        String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
-        File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
-        Map<String, Object> instanceContext = [
+        final String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
+        final File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
+        final Map<String, Object> instanceContext = [
             name       : instanceFile.getName(),
             // Relative to docs directory.
-            path       : instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
-            last_commit: instanceFileLastCommit,
+            path       : instanceFileSrcRelativePath,
+            last_commit: variablesFileData.varsFileLastCommit,
         ]
+        instanceContext.putAll(variablesFileData.toMap())
         mutatedContext.put('instance_file', instanceContext)
 
         final Map<String, Object> outputFileContext = mutatedContext.output_file as Map<String, Object>
         outputFileContext.name = instanceOutputFileName
         outputFileContext.path = instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', '')
 
-        String instanceFileVariablesYamlText = instanceFile.text
-        instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
-
         logger.info("Using `instance_file` context :\n${yaml.dump(instanceContext)}")
 
-        // Cache current last commit so next instance can cleanly compare.
-        def cachedLastCommit = outputFileContext.last_commit
-        if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified") {
+        final Map<String, Object> instanceFileLastCommit = variablesFileData.varsFileLastCommit
+        final def outputFileLastCommit = outputFileContext.last_commit
+        if (instanceFileLastCommit.timestamp.isAfter(outputFileLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified") {
             outputFileContext.last_commit = instanceFileLastCommit
         }
 
@@ -527,5 +605,33 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         // Delete the variables file since we do not want it in the final output dir.
         dirVariablesFile.delete()
         return dirVariables
+    }
+
+    // -------------------------------------------------------------------------
+    // INNER CLASSES
+    // -------------------------------------------------------------------------
+
+    /**
+     * Holds the results from reading a variables file. Contains:
+     *
+     * <ul>
+     *     <li>The values read from a variables file (empty map if file does not exist).</li>
+     *     <li>The values read its corresponding buildscript file (empty map if file does not exists).</li>
+     *     <li>The last commit details of the variables file (empty map if file does not exists).</li>
+     * </ul>
+     */
+    @Immutable
+    class VariablesFileData {
+        Map<String, Object> vars
+        Map<String, Object> varsFileLastCommit
+        Map<String, Object> buildscriptVars
+
+        Map<String, Object> toMap() {
+            return [
+                vars: vars,
+                vars_file_last_commit: varsFileLastCommit,
+                buildscript_vars: buildscriptVars,
+            ]
+        }
     }
 }
