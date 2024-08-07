@@ -11,19 +11,12 @@ import com.google.common.base.Charsets
 import com.google.common.io.Resources
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
-import com.hubspot.jinjava.loader.CascadingResourceLocator
-import com.hubspot.jinjava.loader.ClasspathResourceLocator
-import com.hubspot.jinjava.loader.FileLocator
-import groovy.io.FileType
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.UnknownTaskException
-import org.yaml.snakeyaml.DumperOptions
-import org.yaml.snakeyaml.Yaml
 
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -34,12 +27,6 @@ class DocsPlugin implements Plugin<Project> {
     // -------------------------------------------------------------------------
     // CONSTANTS
     // -------------------------------------------------------------------------
-
-    /**
-     * Name of the default logo file in the resources directory. This is also used as the
-     * destination file name when copying client supplied logos.
-     */
-    public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
 
     /**
      * The default set of options that will be provided to AsciiDoctor for rendering the document.
@@ -55,33 +42,14 @@ class DocsPlugin implements Plugin<Project> {
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
 
-    // NOTE: Using closure because DumperOptions has no builder and we need to
-    //       build instance variables in one statement.
-    /** Yaml parser. */
-    Yaml yaml = { _ ->
-        def yamlOptions = new DumperOptions();
-        yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        yamlOptions.setPrettyFlow(true);
-        return new Yaml(yamlOptions)
-    }()
-
     /** Jinja2 processor. */
-    Jinjava jinjava = { _ ->
+    public static Jinjava jinjava = { _ ->
         JinjavaConfig jinjavaConfig = JinjavaConfig.newBuilder()
                 // Fail if templates reference non-existent variables
                 .withFailOnUnknownTokens(true)
                 .build();
         return new Jinjava(jinjavaConfig)
     }()
-
-    /** Output asciidoc files mapped to the context which created them. */
-    Map<File, Map<String, Object>> outputFileToContextMap = [:]
-
-    /** Header to add to each Jinja2 file prior to rendering. */
-    def templateHeader = ""
-
-    /** Footer to add to each Jinja2 file prior to rendering. */
-    def templateFooter = ""
 
     // -------------------------------------------------------------------------
     // IMPLEMENTATION: Plugin<Project>
@@ -93,31 +61,26 @@ class DocsPlugin implements Plugin<Project> {
         final def config = project.extensions.create('docsPluginConfig', DocsPluginExtension)
         //        project.extensions.docsPluginConfig.extensions.create('website', DocsPluginExtension.WebsiteExtension)
 
-        if (config.autoImportMacros) {
-            templateHeader += '{% import "brightsparklabs-macros.j2" as brightsparklabs %}\n'
-        }
-
-        final File templateHeaderFile = project.file(config.templateHeaderFile)
-        if (templateHeaderFile.exists()) {
-            project.logger.info("Templates will be prepended with header from [${templateHeaderFile}]")
-            templateHeader += templateHeaderFile.text
-        }
-
-        final File templateFooterFile = project.file(config.templateFooterFile)
-        if (templateFooterFile.exists()) {
-            project.logger.info("Templates will be appended with footer from [${templateFooterFile}]")
-            templateFooter += templateFooterFile.text
-        }
-
         final File baseOutputDirectory = project.file('build/brightsparklabs/docs')
         final File jinjaOutputDir = new File(baseOutputDirectory, 'jinjaProcessed')
+        final File buildscriptVarsDir = new File(baseOutputDirectory, 'buildscriptVariables')
         final File dockerfileOutputDir = new File(baseOutputDirectory, 'dockerfile')
+        final File dockerPdfOutputDir = new File(baseOutputDirectory, 'pdf')
         final File websiteOutputDir = new File(baseOutputDirectory, 'website')
 
-        setupJinjaPreProcessingTasks(project, config, jinjaOutputDir)
+        setupJinjaPreProcessingTasks(project, jinjaOutputDir, buildscriptVarsDir)
         setupAsciiDoctor(project, config, jinjaOutputDir)
         setupDockerFileTask(project, config, dockerfileOutputDir)
-        setupWebsiteTasks(project, config, websiteOutputDir)
+
+        def dockerOrPodman = getDockerExecutableName(project)
+        if (dockerOrPodman.isEmpty()) {
+            project.logger.lifecycle("Docker `buildx` compatible command not available. Excluding tasks which rely on it.")
+            return
+        }
+
+        dockerOrPodman = dockerOrPodman.get()
+        setupBuildInDocker(project, config, dockerPdfOutputDir, dockerOrPodman)
+        setupWebsiteTasks(project, config, websiteOutputDir, dockerOrPodman)
     }
 
     // --------------------------------------------------------------------------
@@ -128,13 +91,13 @@ class DocsPlugin implements Plugin<Project> {
      * Adds the Jinja2 pre-processing task.
      *
      * @param project Gradle project to add the task to.
-     * @param config Configuration for this plugin.
      * @param jinjaOutputDir Directory to output rendered Jinja2 templates.
+     * @param buildscriptVariablesDir Directory containing any buildscript created variables.
      */
-    private void setupJinjaPreProcessingTasks(Project project, DocsPluginExtension config, File jinjaOutputDir) {
+    private static void setupJinjaPreProcessingTasks(Project project, File jinjaOutputDir, File buildscriptVariablesDir) {
         project.tasks.register('cleanJinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
-            description = "Cleans the Jinja2 processed documents out of the build directory"
+            description = "Cleans the Jinja2 processed documents out of the build directory."
 
             doLast {
                 project.delete jinjaOutputDir
@@ -154,221 +117,18 @@ class DocsPlugin implements Plugin<Project> {
                     description = "Cleans the documentation."
                 }
             }
-            project.tasks.named('clean'){ dependsOn 'cleanJinjaPreProcess'}
+            project.tasks.named('clean') { dependsOn 'cleanJinjaPreProcess' }
         }
 
-        project.tasks.register('jinjaPreProcess') {
+        project.tasks.register('jinjaPreProcess', Jinja2PreProcessingTask) {
             group = "brightSPARK Labs - Docs"
-            description = "Performs Jinja2 pre-processing on documents"
+            description = "Performs Jinja2 pre-processing on documents."
 
-            /* Calculate the relative path of this project's directory (i.e. the directory
-             * containing this project's `build.gradle` file) relative to the repo root.
-             *
-             * Generally the relative path will simply by blank (i.e. `build.gradle` resides at the
-             * root of the repo). However, if the project is part of a Gradle multi-project build,
-             * then this will not be the case.
-             *
-             * This is variable is needed so that file path can be built for use in `git` commands
-             * which reference files in relation to the repo's root directory.
-             */
-            String projectRelativePath = "";
-            if (!(project.projectDir.toString() == project.rootDir.toString())) {
-                // This is a subproject in a Gradle multi-project build. Calculate relative path.
-                // The `/` subtract/add ensures the string ends with a slash.
-                projectRelativePath = project.projectDir.toString() - project.rootDir.toString() - "/" + "/"
-            }
-
-            doLast {
-                // Copy the entire directory and render files in-place to make
-                // keeping output folder structures intact easier.
-                project.delete jinjaOutputDir
-                jinjaOutputDir.mkdirs()
-                project.copy {
-                    from project.file(config.docsDir)
-                    into jinjaOutputDir
-                }
-
-                def buildImagesDir = project.file(config.buildImagesDir)
-                project.delete buildImagesDir
-                buildImagesDir.mkdirs()
-                project.copy {
-                    from project.file(config.sourceImagesDir)
-                    into buildImagesDir
-                }
-
-                // Copy logo into build directory so it can be referenced in Asciidoc.
-                final Path outputFile = Paths.get("${project.projectDir}/${config.buildImagesDir}/${DEFAULT_LOGO_FILENAME}")
-                try {
-                    final logoBytes = config.logoFile
-                            .map { path -> path.toFile().readBytes() }
-                            .orElse(getClass().getResourceAsStream("/${DEFAULT_LOGO_FILENAME}").readAllBytes());
-                    outputFile.withOutputStream { stream -> stream.write(logoBytes) }
-                } catch (Exception ex) {
-                    logger.error("Could not copy logo file to build directory", ex)
-                    throw ex
-                }
-
-                def now = ZonedDateTime.now()
-                final Map<String, Object> context = getGlobalContext(project, config, now)
-
-                // ------------------------------------------------------------
-                // ROOT JINJA2 CONTEXT
-                // ------------------------------------------------------------
-
-                final File variablesFile = project.file(config.variablesFile)
-                if (variablesFile.exists()) {
-                    project.logger.info("Adding global variables to Jinja2 from [${variablesFile}]")
-
-                    String yamlText = variablesFile.text
-                    context.put('vars', yaml.load(yamlText))
-
-                    Map<String, Object> variablesFileLastCommit = getLastCommit(projectRelativePath + config.variablesFile, now)
-                    context.put('vars_file_last_commit', variablesFileLastCommit)
-                }
-                logger.info("Using `root` context:\n${yaml.dump(context)}")
-
-                // All directory variable files which have been loaded.
-                // Key is the full path to the dir, value is a map of the variables from the dir.
-                final Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles = [:]
-
-                // Process templates.
-                jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
-                    // Ignore file if it is not a Jinja2 template
-                    if (!templateFile.name.endsWith(".j2")) {
-                        logger.info("Skipping non-Jinja2 template [${templateFile}]")
-                        return
-                    }
-
-                    // ------------------------------------------------------------
-                    // TEMPLATE DIR CONTEXT
-                    // ------------------------------------------------------------
-                    final def templateDir = templateFile.getParentFile()
-                    final def templateDirVariables = getDirVariables(templateDir, loadedDirVariablesFiles)
-                    final def templateDirRelativePath = templateDir.getPath().replaceFirst(
-                            jinjaOutputDir.toString(),
-                            new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
-                            ).replaceFirst(config.docsDir + '/?', '')
-                    final def templateDirContext = [
-                        path: templateDirRelativePath,
-                        vars: templateDirVariables]
-                    context.put('template_dir', templateDirContext)
-
-                    // ------------------------------------------------------------
-                    // TEMPLATE FILE CONTEXT
-                    // ------------------------------------------------------------
-                    String templateSrcFile = templateFile.getPath().replaceFirst(
-                            jinjaOutputDir.toString(),
-                            new File(config.docsDir).toString() // NOTE: this cleanly removes trailing slashes
-                            )
-                    Map<String, Object> templateFileLastCommit = getLastCommit(projectRelativePath + templateSrcFile, now)
-                    String templateOutputFileName = templateFile.getName().replaceFirst(/\.j2$/, '')
-                    File templateOutputFile = new File(templateFile.getParent(), templateOutputFileName)
-                    Map<String, Object> templateFileContext = [
-                        name       : templateFile.getName(),
-                        // Relative to docs directory (`toString` to prevent GString in map).
-                        path       : "${templateDirRelativePath}/${templateFile.getName()}".toString(),
-                        last_commit: templateFileLastCommit,
-                    ]
-                    context.put('template_file', templateFileContext)
-
-                    // ------------------------------------------------------------
-                    // OUTPUT FILE CONTEXT
-                    // ------------------------------------------------------------
-                    Map<String, Object> outputFileContext = [
-                        name       : templateOutputFileName,
-                        // Relative to output directory.
-                        path       : templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
-                        last_commit: templateFileLastCommit,
-                    ]
-                    context.put('output_file', outputFileContext)
-
-                    // Include file vars if present.
-                    File fileVariables = new File(templateFile.getAbsolutePath() + ".yaml")
-                    if (fileVariables.exists()) {
-                        String fileVariablesYamlText = fileVariables.text
-                        templateFileContext.put('vars', yaml.load(fileVariablesYamlText))
-
-                        String fileVariablesSrcFile = templateFile.getPath().replaceFirst(
-                                jinjaOutputDir.toString(),
-                                new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
-                                ) + '.yaml'
-                        Map<String, Object> fileVariablesFileLastCommit = getLastCommit(projectRelativePath + fileVariablesSrcFile, now)
-                        templateFileContext.put('vars_file_last_commit', fileVariablesFileLastCommit)
-                        // Make sure that if we want to replace the commit hash that it actually has a commit hash to replace it with.
-                        if (fileVariablesFileLastCommit.timestamp.isAfter(templateFileContext.last_commit.timestamp) && fileVariablesFileLastCommit.hash != "unspecified") {
-                            outputFileContext.last_commit = fileVariablesFileLastCommit
-                        }
-                        fileVariables.delete()
-                    }
-                    logger.info("Using `template_file` context:\n${yaml.dump(templateFileContext)}")
-
-                    // Process instances if present.
-                    File instancesDir = new File(templateFile.getAbsolutePath() + ".d")
-                    if (instancesDir.exists() && instancesDir.isDirectory()) {
-                        instancesDir.traverse(type: FileType.FILES) { instanceFile ->
-                            // Ignore file if it is not a yaml file
-                            if (!instanceFile.name.endsWith(".yaml")) {
-                                logger.info("Skipping non-YAML instance file [${instanceFile}]")
-                                return
-                            }
-
-                            String instanceSrcFile = instanceFile.getPath().replaceFirst(
-                                    jinjaOutputDir.toString(),
-                                    new File(config.docsDir).toString() // NOTE: This cleanly removes trailing slashes.
-                                    )
-                            Map<String, Object> instanceFileLastCommit = getLastCommit(projectRelativePath + instanceSrcFile, now)
-                            // We want to output the file at the same level as the template file.
-                            String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
-                            File instanceOutputFile = new File(templateFile.getParent(), instanceOutputFileName)
-                            Map<String, Object> instanceContext = [
-                                name       : instanceFile.getName(),
-                                // Relative to docs directory.
-                                path       : instanceSrcFile.replaceFirst(config.docsDir + '/?', ''),
-                                last_commit: instanceFileLastCommit,
-                            ]
-                            context.put('instance_file', instanceContext)
-
-                            outputFileContext.name = instanceOutputFileName
-                            outputFileContext.path = instanceOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', '')
-
-                            String instanceFileVariablesYamlText = instanceFile.text
-                            instanceContext.put('vars', yaml.load(instanceFileVariablesYamlText))
-
-                            logger.info("Using `instance_file` context :\n${yaml.dump(instanceContext)}")
-
-                            // Cache current last commit so next instance can cleanly compare.
-                            def cachedLastCommit = outputFileContext.last_commit
-                            if (instanceFileLastCommit.timestamp.isAfter(cachedLastCommit.timestamp) && instanceFileLastCommit.hash != "unspecified") {
-                                outputFileContext.last_commit = instanceFileLastCommit
-                            }
-
-                            logger.debug("Using context:\n${yaml.dump(context)}")
-                            writeTemplateToFile(templateFile, context, instanceOutputFile)
-
-                            // Restore cached last commit so next instance can cleanly compare.
-                            templateFileContext.last_commit = cachedLastCommit
-
-                            // Clean out context and instance file.
-                            context.remove('instance_file')
-                            instanceFile.delete()
-                        }
-                        instancesDir.delete()
-                    } else {
-                        // No instances, just process in place.
-                        logger.debug("Using context:\n${yaml.dump(context)}")
-                        writeTemplateToFile(templateFile, context, templateOutputFile)
-                    }
-
-                    // Clean out context and template.
-                    context.remove('template_dir')
-                    context.remove('template_file')
-                    context.remove('output_file')
-                    templateFile.delete()
-                }
-
-                project.logger.lifecycle("Template files rendered to `${jinjaOutputDir.getAbsolutePath()}`.")
-            }
+            templatesDirProperty.set(new File(config.docsDir))
+            buildscriptVariablesDirProperty.set(buildscriptVariablesDir.getAbsolutePath())
+            jinjaOutputDirProperty.set(jinjaOutputDir)
         }
+
         project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
     }
 
@@ -380,15 +140,15 @@ class DocsPlugin implements Plugin<Project> {
      * @param now The current time (passed in for external consistency).
      * @return The global context to use for rendering templates.
      */
-    private static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
+    static Map<String, Object> getGlobalContext(Project project, DocsPluginExtension config, ZonedDateTime now = ZonedDateTime.now()) {
         final Map<String, Object> sysContext = [
-            project_name: Optional.ofNullable(project.name).map{it.trim()}.orElse("unspecified"),
-            project_description: Optional.ofNullable(project.description).map{it.trim()}.orElse("unspecified"),
-            project_version: Optional.ofNullable(project.version).map{it.trim()}.orElse("unspecified"),
-            project_path: project.projectDir.toPath(),
-            build_timestamp: now,
+            project_name             : Optional.ofNullable(project.name).map { it.trim() }.orElse("unspecified"),
+            project_description      : Optional.ofNullable(project.description).map { it.trim() }.orElse("unspecified"),
+            project_version          : Optional.ofNullable(project.version).map { it.trim() }.orElse("unspecified"),
+            project_path             : project.projectDir.toPath(),
+            build_timestamp          : now,
             build_timestamp_formatted: getFormattedTimestamps(now),
-            repo_last_commit: getLastCommit('.', now),
+            repo_last_commit         : getLastCommit('.', now),
         ]
 
         final Map<String, Object> context = [
@@ -397,41 +157,6 @@ class DocsPlugin implements Plugin<Project> {
         ]
 
         return context
-    }
-
-
-    /**
-     * Renders the supplied template against the supplied context and writes
-     * it to an output file.
-     *
-     * @param templateFile Template to render.
-     * @param context Context to use to fill the template.
-     * @param outputFile File to write the result to.
-     */
-    private void writeTemplateToFile(File templateFile, Map<String, Object> context, File outputFile) {
-        try {
-            // Create an snapshot of the context since it is mutable.
-            def snapshot = context.getClass().<Map<String, Object>>newInstance(context)
-            outputFileToContextMap[outputFile] = snapshot
-
-            // Support Jinja2 imports from classpath and relative to template file's directory.
-            Path absoluteDocsDir = context.sys.project_path.resolve(context.config.docsDir)
-            File absoluteTemplateDir = absoluteDocsDir.resolve(context.template_dir.path).toFile()
-            def resourceLocator = new CascadingResourceLocator(new ClasspathResourceLocator(), new FileLocator(absoluteTemplateDir))
-
-            // Render template to file.
-            def originalResourceLocator = jinjava.getResourceLocator()
-            jinjava.setResourceLocator(resourceLocator)
-            final def inputText = [
-                templateHeader,
-                templateFile.text,
-                templateFooter
-            ].join('\n')
-            outputFile.text = jinjava.render(inputText, context)
-            jinjava.setResourceLocator(originalResourceLocator)
-        } catch (Exception ex) {
-            throw new Exception("Could not process [${templateFile}] - ${ex.message}")
-        }
     }
 
     /**
@@ -503,36 +228,6 @@ class DocsPlugin implements Plugin<Project> {
     }
 
     /**
-     * Returns the variables from the `variables.yaml` file in the template file's directory. Or empty if no variables are present.
-     * This method will cache the result in the `loadedDirVariablesFiles` (i.e. will modify it).
-     *
-     * @param dir The directory the template is from.
-     * @param loadedDirVariablesFiles Cache of all the directory variables files previously loaded.
-     * @return The dir variables pertaining to the template.
-     */
-    private Map<String, Object> getDirVariables(File dir, Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles) {
-        final def dirName = dir.getAbsolutePath()
-        final def extantDirVariables = loadedDirVariablesFiles.get(dirName)
-        if (extantDirVariables != null) {
-            return extantDirVariables.orElse([:])
-        }
-
-        final File dirVariablesFile = new File(dir, "variables.yaml")
-        if (!dirVariablesFile.exists()) {
-            loadedDirVariablesFiles.put(dirName, Optional.empty())
-            return [:]
-        }
-
-        final def yamlText = dirVariablesFile.text
-        final def dirVariables = yaml.<Map<String, Object>> load(yamlText)
-        final def result = Optional.of(dirVariables)
-        loadedDirVariablesFiles.put(dirName, result)
-        // Delete the variables file since we do not want it in the final output dir.
-        dirVariablesFile.delete()
-        return dirVariables
-    }
-
-    /**
      * Adds and configures the Asciidoctor Gradle plugins.
      *
      * @param project Gradle project to add the task to.
@@ -556,24 +251,33 @@ class DocsPlugin implements Plugin<Project> {
 
         project.tasks.register('bslAsciidoctorPdfVersioned') {
             group = "brightSPARK Labs - Docs"
-            description = "Creates PDF files with version string in filename"
+            description = "Creates PDF files with version string in filename."
 
             doLast {
                 final def pdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdf")
+                final def timestampedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfTimestamped")
+                project.copy {
+                    from pdfOutputDir
+                    into timestampedPdfOutputDir
+                }
                 final def versionedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfVersioned")
                 project.copy {
                     from pdfOutputDir
                     into versionedPdfOutputDir
                 }
 
+                // Use the context variables for each output file to determine timestamps.
+                def jinjaPreProcessTask = (Jinja2PreProcessingTask) project.tasks.named('jinjaPreProcess').get()
+                def outputFileToContextMap = jinjaPreProcessTask.getOutputFileToContextMap()
+
                 outputFileToContextMap.each { adocFile, context ->
                     // Find the PDF file which got generated from the asciidoc file.
-                    final String extantFilename = adocFile
+                    final String extantTimestampedFilename = adocFile
                             .getAbsolutePath()
-                            .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfVersioned")
+                            .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfTimestamped")
                             .replace(".adoc", ".pdf")
-                    final Path extantFile = Path.of(extantFilename)
-                    if (!extantFile.toFile().exists()) {
+                    final Path extantTimestampedFile = Path.of(extantTimestampedFilename)
+                    if (!extantTimestampedFile.toFile().exists()) {
                         // The asciidoc file did not result in a PDF file. This happens when the
                         // asciidoc files are in asciidoc hidden folder (i.e. folders prefixed with
                         // an underscore). These files can be ignored.
@@ -581,13 +285,24 @@ class DocsPlugin implements Plugin<Project> {
                         return
                     }
 
-                    final String version = context.sys.project_version
+                    // Copy to timestamped directory.
                     final String timestamp = context.output_file.last_commit.timestamp_formatted.iso_utc_safe
-                    final String renamedFilename = extantFilename
-                            .replace(".pdf", "__${timestamp}__${version}.pdf")
+                    final String renamedTimestampedFilename = extantTimestampedFilename
+                            .replace(".pdf", "__${timestamp}.pdf")
+                    final Path renamedTimestampedFile = Path.of(renamedTimestampedFilename)
+                    Files.move(extantTimestampedFile, renamedTimestampedFile)
 
-                    final Path renamedFile = Path.of(renamedFilename)
-                    Files.move(extantFile, renamedFile)
+                    // Copy to versioned directory.
+                    final String version = context.sys.project_version
+                    final String extantVersionedFilename = adocFile
+                            .getAbsolutePath()
+                            .replace("build/brightsparklabs/docs/jinjaProcessed", "build/docs/asciidoc/pdfVersioned")
+                            .replace(".adoc", ".pdf")
+                    final Path extantVersionedFile = Path.of(extantVersionedFilename)
+                    final String renamedVersionedFilename = extantVersionedFilename
+                            .replace(".pdf", "__${timestamp}__${version}.pdf")
+                    final Path renamedVersionedFile = Path.of(renamedVersionedFilename)
+                    Files.move(extantVersionedFile, renamedVersionedFile)
                 }
             }
         }
@@ -658,13 +373,13 @@ class DocsPlugin implements Plugin<Project> {
                 }
             }
 
-            project.tasks.named('asciidoctor') {dependsOn 'jinjaPreProcess' }
-            project.tasks.named('asciidoctorPdf') {dependsOn 'jinjaPreProcess' }
-            project.tasks.named('bslAsciidoctor') {dependsOn 'asciidoctor' }
-            project.tasks.named('asciidoctorPdf') {dependsOn 'asciidoctor' }
-            project.tasks.named('bslAsciidoctorPdf') {dependsOn 'asciidoctorPdf' }
-            project.tasks.named('bslAsciidoctorPdfVersioned') {dependsOn 'bslAsciidoctorPdf' }
-            project.tasks.named('build') {dependsOn 'bslAsciidoctorPdfVersioned' }
+            project.tasks.named('asciidoctor') { dependsOn 'jinjaPreProcess' }
+            project.tasks.named('asciidoctorPdf') { dependsOn 'jinjaPreProcess' }
+            project.tasks.named('bslAsciidoctor') { dependsOn 'asciidoctor' }
+            project.tasks.named('asciidoctorPdf') { dependsOn 'asciidoctor' }
+            project.tasks.named('bslAsciidoctorPdf') { dependsOn 'asciidoctorPdf' }
+            project.tasks.named('bslAsciidoctorPdfVersioned') { dependsOn 'bslAsciidoctorPdf' }
+            project.tasks.named('build') { dependsOn 'bslAsciidoctorPdfVersioned' }
         }
     }
 
@@ -700,16 +415,65 @@ class DocsPlugin implements Plugin<Project> {
 
                 def dockerFileContent = """
                 # -----------------------------------------
-                # BUILD STAGE: GENERATE ASCIIDOC/PDF FILES
+                # BUILD STAGE: GENERATE PDF FILES
+                # -----------------------------------------
+
+                # This stage is not actually used in the website generation. It is just here to
+                # allow PDF files to be build in a container, with Graphviz+Vega diagramming tools
+                # available.
+                #
+                # Can be called manually via:
+                #
+                #   docker build -t docs -f <GENERATED_DOCKER_FILE> --target builder-pdf .
+
+                FROM eclipse-temurin:17.0.9_9-jdk-jammy as builder-pdf
+
+                RUN apt update
+                # Allow gradle-docs plugin to read git details on files.
+                RUN apt install -y git
+
+                # Allow asciidoctor-diagram to render plantuml (dot) diagrams.
+                RUN apt install -y graphviz
+
+                # Allow asciidoctor-diagram to render Vega diagrams.
+                # nvm needs an interactive shell: https://stackoverflow.com/a/60137919
+                SHELL ["/bin/bash", "--login", "-i", "-c"]
+                RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+                RUN source ~/.bashrc
+                RUN nvm install lts/iron
+                RUN npm install -g vega-cli
+
+                # Get gradle distribution (done separately so Docker caches layer)
+                WORKDIR /src
+                COPY build.gradle settings.gradle gradlew ./
+                COPY gradle ./gradle/
+                RUN ./gradlew build || return 0 # force sucess as build is expected to fail due to no sources
+
+                COPY .git ./.git
+                COPY src ./src
+
+                # Build the PDF files.
+                RUN ./gradlew bslAsciidoctorPdfVersioned --no-daemon
+
+                # -----------------------------------------
+                # EXPORT STAGE
+                # -----------------------------------------
+
+                # The image produced by this stage can be used if the files are to be exported to
+                # the file system via: `docker build ... --target pdf-export-stage --output output/`
+
+                # Base off scratch so output only contains the PDF files.
+                FROM scratch AS pdf-export-stage
+                COPY --from=builder-pdf /src/build/docs/asciidoc .
+
+                # -----------------------------------------
+                # BUILD STAGE: GENERATE ASCIIDOC FILES
                 # -----------------------------------------
 
                 FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
 
-                RUN apk add \\
-                  # Allow gradle-docs plugin to read git details on files.
-                  git \\
-                  # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
-                  graphviz
+                # Allow gradle-docs plugin to read git details on files.
+                RUN apk add git
 
                 # Get gradle distribution (done separately so Docker caches layer)
                 WORKDIR /src
@@ -732,8 +496,13 @@ class DocsPlugin implements Plugin<Project> {
 
                 FROM jekyll/jekyll:4.2.2 as builder-jekyll
 
-                # Needed to allow asciidoctor-diagram to render plantuml (dot) diagrams.
+                # Allow asciidoctor-diagram to render plantuml (dot) diagrams.
                 RUN apk add graphviz
+
+                # Allow asciidoctor-diagram to render Vega diagrams.
+                # Vega is an nodejs project, but it requires C header files from `giflib`.
+                RUN apk add giflib-dev
+                RUN npm install -g vega-cli
 
                 COPY --from=builder-java /src/build/brightsparklabs/docs/dockerfile/_config.yml .
                 COPY --from=builder-java /src/build/brightsparklabs/docs/dockerfile/Gemfile .
@@ -783,16 +552,17 @@ class DocsPlugin implements Plugin<Project> {
                 ARG BUILD_DATE=UNKNOWN
                 ARG VCS_REF=UNKNOWN
                 LABEL org.label-schema.name="nswcc-documentation" \
-                      org.label-schema.description="Image used by NSWCC to host documentation as a static website" \
+                      org.label-schema.description="Image used to host documentation as a static website." \
                       org.label-schema.vendor="brightSPARK Labs" \
                       org.label-schema.schema-version="1.0.0-rc1" \
-                      org.label-schema.vcs-url="https://bitbucket.org/brightsparklabs/nswcc-documentation" \
+                      org.label-schema.vcs-url="https://bitbucket.org/brightsparklabs/gradle-docs" \
                       org.label-schema.vcs-ref=\${VCS_REF} \
                       org.label-schema.build-date=\${BUILD_DATE}
                 ENV META_BUILD_DATE=\${BUILD_DATE} \
                     META_VCS_REF=\${VCS_REF}
 
                 COPY --from=builder-jekyll /tmp/site /var/www
+                COPY --from=builder-pdf /src/build/docs/asciidoc /var/www/export
                 """.stripIndent().trim()
 
                 def dockerFile = new File(outputDir, "Dockerfile")
@@ -806,28 +576,89 @@ class DocsPlugin implements Plugin<Project> {
     }
 
     /**
+     * Returns the name of the docker compatible executable (docker or podman) iff it has `buildx` support.
+     *
+     * @param project Gradle project to add the task to.
+     * @return `docker` or `podman` iff one of them has `buildx` support. Empty otherwise.
+     */
+    private Optional<String> getDockerExecutableName(Project project) {
+        if (checkCommandAvailable("docker buildx --help")) {
+            project.logger.lifecycle("`docker buildx` available.")
+            return Optional.of("docker")
+        }
+
+        if (checkCommandAvailable("podman buildx --help")) {
+            project.logger.lifecycle("`podman buildx` available.")
+            return Optional.of("podman")
+        }
+
+        project.logger.lifecycle("`docker buildx` / `podman buildx` not available.")
+        return Optional.empty()
+    }
+
+    /**
+     * Runs the `bslAsciidoctorPdf` task in a docker container. Useful as the CLI diagramming CLI
+     * tools do not need to be installed on the local machine.
+     *
+     * @param project Gradle project to add the task to.
+     * @param config Configuration for this plugin.
+     * @param outputDir Directory to write the output to.
+     * @param dockerOrPodman The command (docker or podman) to run for building the container.
+     */
+    private void setupBuildInDocker(Project project, DocsPluginExtension config, File outputDir, String dockerOrPodman) {
+        project.tasks.register('bslAsciidoctorPdfInDocker') {
+            group = "brightSPARK Labs - Docs"
+            description = "Runs the Asciidoctor PDF tasks within a Docker container. Useful as the CLI diagramming CLI tools do not need to be installed on the local machine."
+            dependsOn(GENERATE_DOCKERFILE_TASK_NAME)
+            inputs.files(project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).get().outputs.files)
+            outputs.dir(outputDir)
+
+            doLast {
+                outputDir.deleteDir()
+                outputDir.mkdirs()
+
+                /*
+                 * The outputs from the `generateDockerFile` task only contain one file, the
+                 * Dockerfile. It is the first item.
+                 */
+                def dockerFile = inputs.files[0]
+
+                def command = [
+                    dockerOrPodman,
+                    "build",
+                    "--file",
+                    dockerFile,
+                    // Specify the stage which contains only the built artifact.
+                    "--target=pdf-export-stage",
+                    // Write the files from that stage to the output directory.
+                    "--output",
+                    outputDir,
+                    project.projectDir
+                ]
+                // Use `project.exec` (rather than "command".execute() as it live prints stderr/stdout.
+                project.exec {
+                    commandLine command
+                }
+                logger.lifecycle("PDF files exported to: `${outputDir}`")
+            }
+        }
+    }
+
+
+    /**
      * Adds the website generation tasks.
      *
      * @param project Gradle project to add the task to.
      * @param config Configuration for this plugin.
+     * @param outputDir Directory to write the output to.
+     * @param dockerOrPodman The command (docker or podman) to run for building the container.
      */
-    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File outputDir) {
-        // Only enable task if `docker buildx`/`podman buildx` is present since it is used for the generation.
-        def dockerOrPodman
-        if (checkCommandAvailable("docker buildx --help")) {
-            project.logger.lifecycle("`docker buildx` available. Adding website generation tasks.")
-            dockerOrPodman = "docker"
-        } else if (checkCommandAvailable("podman buildx --help")) {
-            project.logger.lifecycle("`podman buildx` available. Adding website generation tasks.")
-            dockerOrPodman = "podman"
-        } else {
-            project.logger.lifecycle("`docker buildx` / `podman buildx` not available. Not adding website generation tasks (which require it)")
-            return
-        }
+    private void setupWebsiteTasks(Project project, DocsPluginExtension config, File outputDir, String dockerOrPodman) {
+        project.logger.lifecycle("Adding website generation tasks.")
 
         project.tasks.register('cleanJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
-            description = "Cleans the Jekyll website out of the build directory"
+            description = "Cleans the Jekyll website out of the build directory."
 
             doLast {
                 project.delete outputDir
@@ -835,8 +666,6 @@ class DocsPlugin implements Plugin<Project> {
         }
 
         // Use `afterEvaluate` in case another task add the `clean` task.
-
-
         project.afterEvaluate {
             try {
                 project.tasks.named('clean')
@@ -844,16 +673,16 @@ class DocsPlugin implements Plugin<Project> {
             catch (UnknownTaskException ignored) {
                 project.tasks.register('clean') {
                     group = "brightSPARK Labs - Docs"
-                    description = "Cleans the Jekyll website out of the build directory"
+                    description = "Cleans the Jekyll website out of the build directory."
                 }
             }
 
-            project.tasks.named('clean'){ dependsOn 'cleanJekyllWebsite'}
+            project.tasks.named('clean') { dependsOn 'cleanJekyllWebsite' }
         }
 
         project.tasks.register('generateJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
-            description = "Generates a Jekyll based website from the documents using docker"
+            description = "Generates a Jekyll based website from the documents using docker."
             dependsOn(GENERATE_DOCKERFILE_TASK_NAME)
             inputs.files(project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).get().outputs.files)
             outputs.dir(outputDir)

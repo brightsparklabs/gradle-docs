@@ -16,11 +16,23 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.1.0...HEAD)
+
+---
+
+## [3.1.0] - 2024-08-07
+
+### Added
+
+* RAD-191: Support Vega diagrams in build containers.
+* RAD-192: Add `pdfTimestamped` variant for generated documents'
+* INS-477: Add ability to generate 'buildscript variables' from `build.gradle`
+
 [Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.0.0...3.y.z)
 
 ---
 
-## [3.0.0] - 2024-12-22
+## [3.0.0] - 2023-12-22
 
 ### Changed
 
@@ -64,13 +76,15 @@ _No changelog for this release._
 
 # TEMPLATE
 
+## [Unreleased]
+
 ### Added
 
 ### Fixed
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.0.0...3.y.z)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/x.y.z...HEAD)
 
 ---
 
