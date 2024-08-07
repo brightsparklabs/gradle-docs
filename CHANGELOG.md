@@ -12,6 +12,9 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
+* INS-477: Add helper methods under `project.ext.bslGradleDocs` for creating buildscript variables
+  files.
+
 ### Fixed
 
 ### Changed
