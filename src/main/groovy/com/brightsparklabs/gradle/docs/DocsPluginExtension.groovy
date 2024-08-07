@@ -52,9 +52,9 @@ class DocsPluginExtension {
     /**
      * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
      * <p>
-     * Default:  `image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n`
+     * Default:  `image:${Jinja2PreProcessingTask.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n`
      */
-    String titleLogoImage = "image:${DocsPlugin.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n"
+    String titleLogoImage = "image:${Jinja2PreProcessingTask.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n"
 
     /**
      * Modifications that will be made to the default asciidoctorj options for rendering the document.
