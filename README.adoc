@@ -439,8 +439,16 @@ prior to calling the `jinjaPreProcess` task:
 build/brightsparklabs/docs/buildscriptVariables/
 ----
 
-The files need to be named analagous to what the are named in the source templates directory, and
+The files need to be named analogous to what they are named in the source templates directory, and
 they will be added to Jinja2 context is the corresponding location under a `buildscript_vars` key.
+
+The following helpers are exposed under `project.ext.bslGradleDocs`:
+
+File buildscriptVariablesDir::
+Returns the buildscript variables directory.
+
+File createBuildscriptVariablesFile(String path)::
+Creates a file at the specified path under the buildscript directory.
 
 E.g.
 
@@ -461,19 +469,41 @@ E.g. Via a task:
 ----
 // build.gradle
 
+import org.yaml.snakeyaml.Yaml
+
 tasks.register('generateVariables') {
     outputs.upToDateWhen { false }
 
     doLast {
-      def globalBuildscriptDir = project.file('build/brightsparklabs/docs/buildscriptVariables/src')
-      globalBuildscriptDir.mkdirs()
+      // ---------------------------------------------------------
+      // Example 1: Reshape source variables.
+      // ---------------------------------------------------------
 
-      def globalBuildscriptFile = new File(globalBuildscriptDir, 'variables.yaml')
-      globalBuildscriptFile.text = """
-          ---
-          foo: 12
-          bar: 2
-          """.stripIndent().stripLeading()
+      def adminGuideFilePath = 'src/docs/devops/administrator-guide.adoc.j2.yaml'
+      def adminGuideFile = project.file(adminGuideFilePath)
+
+      def yamlParser = new Yaml()
+      def adminGuideVars = yamlParser.load(adminGuideFile.text)
+
+      // Add an ID to each step.
+      adminGuideFile.steps.eachWithIndex { item, index ->
+        item.id = "${index + 1}.padLeft(5, '0')
+      }
+
+      def buildscriptVarsFile = project.ext.bslGradleDocs.createBuildscriptVariablesFile(adminGuideFilePath)
+      buildscriptVarsFile.text = yamlParser.dump(adminGuideVars)
+
+      // ---------------------------------------------------------
+      // Example 2: Create global buildscript variables.
+      // ---------------------------------------------------------
+
+      def buildscriptGlobalVarsFile =
+        project.ext.bslGradleDocs.createBuildscriptVariablesFile('variables.yaml')
+      buildscriptGlobalVarsFile.text = """
+        ---
+        foo: 12
+        bar: 2
+        """.stripIndent().stripLeading()
     }
 }
 project.tasks.named('jinjaPreProcess'){ dependsOn 'generateVariables' }

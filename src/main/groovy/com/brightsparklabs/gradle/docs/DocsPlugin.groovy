@@ -81,6 +81,36 @@ class DocsPlugin implements Plugin<Project> {
         dockerOrPodman = dockerOrPodman.get()
         setupBuildInDocker(project, config, dockerPdfOutputDir, dockerOrPodman)
         setupWebsiteTasks(project, config, websiteOutputDir, dockerOrPodman)
+
+        project.ext.bslGradleDocs = [
+            buildScriptVariablesDirs: buildscriptVarsDir,
+            createBuildscriptVariablesFile: { filePath ->
+                createBuildscriptVariablesFile(buildscriptVarsDir, filePath)
+            }
+        ]
+        project.logger.info('The following has been exposed under `project.ext.bslGradleDocs:\n{}', project.ext.bslGradleDocs)
+    }
+
+    // --------------------------------------------------------------------------
+    // EXPOSED METHODS
+    // -------------------------------------------------------------------------
+
+    /**
+     * Creates a variables file within the buildscript variables directory.
+     *
+     * E.g.
+     *
+     *   In: src/devops/administrator-guide.adoc.j2.yaml
+     *   Out: build/brightsparklabs/docs/buildscriptVariables/src/devops/administrator-guide.adoc.j2.yaml
+     *
+     * @param buildScriptVariablesDir The buildscript variables directory.
+     * @param filePath The path to the new file within the directory.
+     * @return The newly created file.
+     */
+    File createBuildscriptVariablesFile(File buildScriptVariablesDir, String filePath) {
+        def buildscriptVariablesFile = new File(buildScriptVariablesDir, filePath)
+        buildscriptVariablesFile.parentFile.mkdirs()
+        return buildscriptVariablesFile
     }
 
     // --------------------------------------------------------------------------
