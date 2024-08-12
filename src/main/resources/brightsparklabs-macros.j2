@@ -11,6 +11,7 @@
  # - `toclevels` set to 4.
  # - `sectnums` enabled.
  # - `sectnumlevels` set to 5.
+ # - `chapter-signifier` removes the `Chapter` prefix added by `sectnums`.
  #}
 {%- macro add_default_attributes() -%}
 :revnumber: {{ output_file.last_commit.hash }}
@@ -20,4 +21,5 @@
 :toclevels: 4
 :sectnums:
 :sectnumlevels: 5
+:!chapter-signifier:
 {%- endmacro bsl_default_attributes() -%}
