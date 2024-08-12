@@ -12,14 +12,26 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
-* INS-477: Add helper methods under `project.ext.bslGradleDocs` for creating buildscript variables
-  files.
-
 ### Fixed
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.1.0...HEAD)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.2.0...HEAD)
+
+---
+
+## [3.2.0] - 2024-08-12
+
+### Added
+
+* INS-477: Add helper methods under `project.ext.bslGradleDocs` for creating buildscript variables
+  files.
+
+### Changed
+
+* INS-477: Upgrade Asciidoctor gradle plugin to v4.
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.1.0...3.2.0)
 
 ---
 

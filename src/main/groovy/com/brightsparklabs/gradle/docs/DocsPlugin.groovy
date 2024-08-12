@@ -15,7 +15,6 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.UnknownTaskException
 
-import javax.print.DocPrintJob
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.ZonedDateTime
