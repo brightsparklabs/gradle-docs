@@ -37,7 +37,7 @@ Applies brightSPARK Labs standardisation to project documentation.
 
 plugins {
     // Applies brightSPARK Labs standardisation to project documentation.
-    id 'com.brightsparklabs.gradle.docs' version '<version>'
+    id 'com.brightsparklabs.gradle.docs' version '<version>'    <1>
 }
 
 // Define repositories to ensure plugin dependencies libraries can be resolved.
@@ -45,6 +45,8 @@ repositories {
     mavenCentral()
 }
 ----
+<1> Latest version:
+https://plugins.gradle.org/plugin/com.brightsparklabs.gradle.docs[image:https://img.shields.io/gradle-plugin-portal/v/com.brightsparklabs.gradle.docs[Version]]
 
 By default:
 
