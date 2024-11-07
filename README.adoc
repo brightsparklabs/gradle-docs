@@ -757,8 +757,8 @@ docsPluginConfig {
     // Adding a non-existent key will add the option.
     // Adding an existing key will override the pre-existing option.
     // Adding an existing key with a value of `null` will remove the option.
-    // Default: `["doctype" : 'book']`
-    options = ["doctype" : 'article']
+    // Default: `["doctype@" : 'book']`
+    options = ["doctype@" : 'article']
 
 
     // Modifications that will be made to the list of attributes that will be used by asciidoctor when rendering the documents.
