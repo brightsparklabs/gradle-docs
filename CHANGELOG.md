@@ -16,6 +16,21 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
+---
+
+## [3.4.0] - 2024-12-04
+
+### Added
+
+* RAD-1: Make it easy to see latest version.
+* BD-116: Allow doctype to be overidden in asciidoc files.
+
+---
+
+## [3.3.0] - 2024-10-01
+
+### Fixed
+
 * INS-477: Remove `Chapter` prefix which got introduced by the `:sectnums:` attribute.
 
 [Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.2.0...HEAD)

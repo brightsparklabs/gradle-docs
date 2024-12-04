@@ -31,7 +31,7 @@ class DocsPlugin implements Plugin<Project> {
     /**
      * The default set of options that will be provided to AsciiDoctor for rendering the document.
      */
-    public static final Map<String, Object> DEFAULT_ASCIIDOCTOR_OPTIONS = ["doctype": 'book']
+    public static final Map<String, Object> DEFAULT_ASCIIDOCTOR_OPTIONS = ["doctype@": 'book']
 
     /**
      * The name of the task which generates the Dockerfile for hosting the documentation as a static website.
