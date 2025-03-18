@@ -360,15 +360,16 @@ class DocsPlugin implements Plugin<Project> {
                     /*
                      * This is the list of default configurations that can be added to or modified via the attributes map
                      *
-                     * 'chapter-label': ''  -> do not prefix headings with anything
-                     * 'icon-set':          -> use Font Awesome icon set
-                     * 'icons'': 'font'     -> use Font Awesome for admonitions
-                     * 'imagesdir'':        -> directory to resolve images from
-                     * 'sectnums':          -> numbers headings
-                     * 'sectnumlevels':     -> numbers all headings levels (1-5)
-                     * 'source-highlighter' -> add syntax highlighting to source blocks
-                     * 'title-logo-image'   -> defines the configuration of the image for pdf cover pages
-                     * 'toc': 'left'        -> places TOC on left hand site in HTML pages
+                     * 'doctype': 'book'        -> Use `Book` as default rather than `article`.
+                     * '!chapter-signifier': '' -> Do not prefix chapter (Heading 1) with anything.
+                     * 'icon-set':              -> Use Font Awesome icon set.
+                     * 'icons'': 'font'         -> Use Font Awesome for admonitions.
+                     * 'imagesdir'':            -> Directory to resolve images from.
+                     * 'sectnums':              -> Numbers headings.
+                     * 'sectnumlevels':         -> Numbers all headings levels (1-5).
+                     * 'source-highlighter'     -> Add syntax highlighting to source blocks.
+                     * 'title-logo-image'       -> Defines the configuration of the image for pdf cover pages.
+                     * 'toc': 'left'            -> Places TOC on left hand site in HTML pages.
                      *
                      * Appending `@` to lower precedence so that defaults can
                      * be overridden in Asciidoc documents. See:
@@ -376,7 +377,8 @@ class DocsPlugin implements Plugin<Project> {
                      */
 
                     Map<String, Object> pluginAttributes = [
-                        'chapter-label@'     : '',
+                        'doctype@'           : 'book',
+                        '!chapter-signifier' : '',
                         'icon-set@'          : 'fas',
                         'icons@'             : 'font',
                         'imagesdir@'         : project.file(config.buildImagesDir),

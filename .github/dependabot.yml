@@ -11,3 +11,6 @@ updates:
   - michael-lyndon-bsl
   labels:
   - dependencies
+  # TODO: SYS-142: Remove this once fixed.
+  ignore:
+  - dependency-name: "org.yaml:snakeyaml"
