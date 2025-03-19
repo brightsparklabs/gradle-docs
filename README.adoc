@@ -107,6 +107,8 @@ Template files can reference any of the variables in this map via standard Jinja
 
 === System variables
 
+The following are added to the Jinja2 context map:
+
 [source,yaml]
 ----
 sys:
@@ -178,8 +180,35 @@ sys:
 
 User defined variables from global variables YAML file (default: `src/variables.yaml`).
 
+Any variables defined in that file and placed in a `vars` top level key and added to the Jinja2
+context map.
+
+[IMPORTANT]
+--
+The YAML file loader by default only allows a maximum of 50 YAML aliases to be used. This
+is the default setting from `snakeyaml` (v1.33) designed to protect against
+https://en.wikipedia.org/wiki/Billion_laughs_attack[the billion laughs attack]. If your project
+contains YAML files with more than 50 aliases, then you can override the max limit in your
+`gradle.properties` file via:
+
+[source,properties]
+----
+// File: gradle.properties
+
+...
+
+// Allow gradle-docs YAML loader to read files with up to 1000 aliases.
+com.brightsparklabs.gradle.docs.YAML_MAX_ALIASES = 1000
+----
+
+This setting applies to all YAML files loaded by the system.
+--
+
+The following are added to the Jinja2 context map:
+
 [source,yaml]
 ----
+# User defined variables from the global varialbes YAML file (if present).
 vars:
   ...
 
@@ -500,7 +529,7 @@ tasks.register('generateVariables') {
       // ---------------------------------------------------------
 
       def buildscriptGlobalVarsFile =
-        project.ext.bslGradleDocs.createBuildscriptVariablesFile('variables.yaml')
+        project.ext.bslGradleDocs.createBuildscriptVariablesFile('src/variables.yaml')
       buildscriptGlobalVarsFile.text = """
         ---
         foo: 12
