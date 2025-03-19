@@ -19,6 +19,7 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.yaml.snakeyaml.DumperOptions
+import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 
 import java.nio.file.Path
@@ -42,18 +43,46 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      */
     public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
 
+    /** Name of the Gradle property used to control max aliases allowed by Yaml loader. */
+    public static final String YAML_MAX_ALIASES = 'com.brightsparklabs.gradle.docs.YAML_MAX_ALIASES'
+
     // -------------------------------------------------------------------------
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
 
-    // NOTE: Using closure because DumperOptions has no builder and we need to
-    //       build instance variables in one statement.
+    /*
+     * Using a closure to build the `Yaml` because we need to build up the `LoaderOptions` and
+     * `DumperOptions` first. The closure allows us to run the logic, then execute (with the tailing
+     * `()`) which then sets the value.
+     *
+     * NOTE: Needs to be non-static as we need to use the `project` variable (which is non-static)
+     * to get Gradle properties.
+     */
     /** Yaml parser. */
-    private static final Yaml yaml = { _ ->
-        def yamlOptions = new DumperOptions();
-        yamlOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        yamlOptions.setPrettyFlow(true);
-        return new Yaml(yamlOptions)
+    private final Yaml yaml = { _ ->
+        LoaderOptions loaderOptions = new LoaderOptions();
+        /*
+         * We only want to set the unsafe `setMaxAliasesForCollections` if explicitly requested by
+         * developer using a gradle property.
+         */
+        String maxAliases = project.findProperty(YAML_MAX_ALIASES)
+        if (maxAliases != null) {
+            int max = Integer.parseInt(maxAliases)
+            project.logger.warn(
+              "Gradle property `${YAML_MAX_ALIASES}` is set to `${max}`. Setting Yaml loader option `setMaxAliasesForCollections`. Be aware of security implications.")
+            loaderOptions.setMaxAliasesForCollections(max);
+        }
+
+        def dumperOptions = new DumperOptions();
+        dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+        dumperOptions.setPrettyFlow(true);
+
+        return new Yaml(
+            new org.yaml.snakeyaml.constructor.Constructor(loaderOptions),
+            new org.yaml.snakeyaml.representer.Representer(dumperOptions),
+            dumperOptions,
+            loaderOptions
+        );
     }()
 
     /* NOTE:
@@ -585,7 +614,7 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      * @param loadedDirVariablesFiles Cache of all the directory variables files previously loaded.
      * @return The dir variables pertaining to the template.
      */
-    static Map<String, Object> getDirVariables(File dir, Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles) {
+    Map<String, Object> getDirVariables(File dir, Map<String, Optional<Map<String, Object>>> loadedDirVariablesFiles) {
         final def dirName = dir.getAbsolutePath()
         final def extantDirVariables = loadedDirVariablesFiles.get(dirName)
         if (extantDirVariables != null) {
