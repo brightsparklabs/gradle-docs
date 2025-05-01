@@ -152,7 +152,7 @@ class DocsPlugin implements Plugin<Project> {
 
         project.tasks.register('jinjaPreProcess', Jinja2PreProcessingTask) {
             group = "brightSPARK Labs - Docs"
-            description = "Performs Jinja2 pre-processing on documents."
+            description = "Performs Jinja2 pre-processing on documents. Filter paths with `-P${Jinja2PreProcessingTask.GRADLE_PROPERTY_NAME_INCLUDE}=src/dir1,src/dir2/dir3`."
 
             templatesDirProperty.set(new File(config.docsDir))
             buildscriptVariablesDirProperty.set(buildscriptVariablesDir.getAbsolutePath())
