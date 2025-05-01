@@ -834,6 +834,52 @@ docsPluginConfig {
 }
 ----
 
+=== Filtering Output
+
+Generating PDF files can be time intensive. If you only want to generate specific files, you can
+specify which files to generate using a Gradle property.
+
+E.g.
+[example]
+====
+Given this src directory setup:
+
+[source,bash]
+----
+src
+└── docs
+    ├── intro
+    │   ├── introduction.adoc.j2
+    │   ├── introduction.adoc.j2.yaml
+    │   ├── overview.adoc.j2
+    │   └── overview.adoc.j2.yaml
+    └── outro
+        ├── conclusion.adoc.j2
+        ├── conclusion.adoc.j2.yaml
+        ├── overview.adoc.j2
+        └── overview.adoc.j2.yaml
+----
+
+If the property is set as follows:
+
+[source,bash]
+----
+./gradlew  -PbslDocsInclude=src/docs/intro,src/docs/outro/conclusion.adoc
+----
+
+Then the resulting Jinja2 output directory would contain:
+
+[source,bash]
+----
+jinjaProcessed
+├── intro
+│   ├── introduction.adoc
+│   └── overview.adoc
+└── outro
+    └── conclusion.adoc
+----
+====
+
 === brightSPARK Labs Jinja2 Macros
 
 If the configuration field `autoImportMacros` is set to `true` (default) then the following macros

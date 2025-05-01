@@ -46,6 +46,18 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     /** Name of the Gradle property used to control max aliases allowed by Yaml loader. */
     public static final String YAML_MAX_ALIASES = 'com.brightsparklabs.gradle.docs.YAML_MAX_ALIASES'
 
+    /**
+     * Name of the Gradle property which controls filtering output files.
+     *
+     * This property can be set as a comma delimited lists. E.g.
+     *
+     *   -P{@value #GRADLE_PROPERTY_NAME_INCLUDE}=src/docs/intro,src/docs/outro/conclusion.adoc
+     *
+     * Any files in the resulting Jinja2 output directory which match any of those prefixes will be
+     * included, any other files will be deleted.
+     */
+    public static final String GRADLE_PROPERTY_NAME_INCLUDE = 'bslDocsInclude';
+
     // -------------------------------------------------------------------------
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
@@ -69,7 +81,7 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         if (maxAliases != null) {
             int max = Integer.parseInt(maxAliases)
             project.logger.warn(
-              "Gradle property `${YAML_MAX_ALIASES}` is set to `${max}`. Setting Yaml loader option `setMaxAliasesForCollections`. Be aware of security implications.")
+                    "Gradle property `${YAML_MAX_ALIASES}` is set to `${max}`. Setting Yaml loader option `setMaxAliasesForCollections`. Be aware of security implications.")
             loaderOptions.setMaxAliasesForCollections(max);
         }
 
@@ -78,11 +90,11 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         dumperOptions.setPrettyFlow(true);
 
         return new Yaml(
-            new org.yaml.snakeyaml.constructor.Constructor(loaderOptions),
-            new org.yaml.snakeyaml.representer.Representer(dumperOptions),
-            dumperOptions,
-            loaderOptions
-        );
+                new org.yaml.snakeyaml.constructor.Constructor(loaderOptions),
+                new org.yaml.snakeyaml.representer.Representer(dumperOptions),
+                dumperOptions,
+                loaderOptions
+                );
     }()
 
     /* NOTE:
@@ -112,7 +124,7 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     private def templateFooter = ""
 
     // -------------------------------------------------------------------------
-    // DYNAMIC INPUTS
+    // GRADLE  - DYNAMIC INPUTS
     // -------------------------------------------------------------------------
 
     /** Directory containing the source templates to render. */
@@ -220,6 +232,14 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
             renderTemplateFile(templateFile, context, templateDirVariables)
         }
 
+        /*
+         * We do the include filtering on the raw Jinja2 templates, as Jinja2 templates might
+         * include/import other templates. So we render the Asciidoc files via Jinja2 (which is
+         * cheap time wise), then do the clean out. This means the PDF generation (which is
+         * expensive time wise) has less files to process.
+         */
+        filterResultingFiles()
+
         project.logger.lifecycle("Template files rendered to `${jinjaOutputDir.getAbsolutePath()}`.")
     }
 
@@ -275,26 +295,41 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
 
     /**
      * Finds the corresponding source file for a file currently in the Jinja2 output directory.
+     *
+     * E.g.
+     *
+     *   In:  /path/to/my-project/subproject/docs/src/docs/intro/overview.adoc.j2
+     *   Out: src/docs/intro/overview.adoc.j2
+     *
      * @param fileInJinja2OutputDir The file which currently resides in the Jinja2 output directory.
      * @return The corresponding source file which the file was copied from.
      */
     File jinja2OutputDirPathToSrcDirPath(File fileInJinja2OutputDir) {
+        final String srcFilePath = jinja2OutputDirPathToSrcDirPathString(fileInJinja2OutputDir)
+        final File srcFile = project.file(srcFilePath)
+        return srcFile
+    }
+
+    /**
+     * Finds the corresponding source file for a file currently in the Jinja2 output directory.
+     * Returns it as a String RELATIVE path to the source directory.
+     *
+     * E.g.
+     *
+     *   In:  /path/to/my-project/subproject/docs/src/docs/intro/overview.adoc.j2
+     *   Out: src/docs/intro/overview.adoc.j2
+     *
+     * @param fileInJinja2OutputDir The file which currently resides in the Jinja2 output directory.
+     * @return The corresponding source file which the file was copied from.
+     *
+     */
+    String jinja2OutputDirPathToSrcDirPathString(File fileInJinja2OutputDir) {
         // NOTE: The `new File` call cleanly removes any trailing slashes on the `config.docsDir` value.
         final String srcDirPath = new File(config.docsDir).toString()
 
         final String jinja2OutputDirPath = jinjaOutputDirProperty.get().asFile.toString()
-        /*
-         * Replace the path to the jinja2Output directory with the path to the source directory
-         *
-         * E.g.
-         *
-         *   In:  /path/to/my-project/build/brightsparklabs/docs/jinjaProcessed/intro/overview.adoc.j2
-         *   Out: src/docs/intro/overview.adoc.j2
-         */
         final String srcFilePath = fileInJinja2OutputDir.getPath().replaceFirst(jinja2OutputDirPath, srcDirPath)
-
-        final File srcFile = project.file(srcFilePath)
-        return srcFile
+        return srcFilePath
     }
 
     /**
@@ -634,6 +669,65 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         // Delete the variables file since we do not want it in the final output dir.
         dirVariablesFile.delete()
         return dirVariables
+    }
+
+    /**
+     * If the gradle property {@value #GRADLE_PROPERTY_NAME_INCLUDE} has been set, then it
+     * specifies which files to include in the final output. This method filters out (deletes) any
+     * files which are not included by the filter.
+     *
+     * E.g.
+     *
+     *   Given this src directory setup:
+     *
+     *     src
+     *     └── docs
+     *         ├── intro
+     *         │   ├── introduction.adoc.j2
+     *         │   ├── introduction.adoc.j2.yaml
+     *         │   ├── overview.adoc.j2
+     *         │   └── overview.adoc.j2.yaml
+     *         └── outro
+     *             ├── conclusion.adoc.j2
+     *             ├── conclusion.adoc.j2.yaml
+     *             ├── overview.adoc.j2
+     *             └── overview.adoc.j2.yaml
+     *
+     * If the property is set as follows:
+     *
+     *   -P{@value #GRADLE_PROPERTY_NAME_INCLUDE}=src/docs/intro,src/docs/outro/conclusion.adoc
+     *
+     * Then the resulting Jinja2 output directory would contain:
+     *
+     *     jinjaProcessed
+     *     ├── intro
+     *     │   ├── introduction.adoc
+     *     │   └── overview.adoc
+     *     └── outro
+     *         └── conclusion.adoc
+     */
+    def filterResultingFiles() {
+        def filter = project.providers.gradleProperty(GRADLE_PROPERTY_NAME_INCLUDE)
+        if (! filter.present) {
+            // No filtering to be done, can return.
+            return
+        }
+
+        def filtersRaw = filter.get()
+        project.logger.lifecycle("Applying post filtering to rendered Jinja2 files: {}", filtersRaw)
+
+        final File jinjaOutputDir = jinjaOutputDirProperty.get().asFile
+        def filters = filter.get().split('\\s*,\\s*')
+
+        jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
+            def correspondingSrcFile = jinja2OutputDirPathToSrcDirPathString(templateFile)
+
+            if (!filters.any { correspondingSrcFile.startsWith(it)}) {
+                // None of the filters includes this file, delete it.
+                project.logger.debug("Filtering out src file: `{}` -> `{}`", correspondingSrcFile, templateFile)
+                project.delete(templateFile)
+            }
+        }
     }
 
     // -------------------------------------------------------------------------

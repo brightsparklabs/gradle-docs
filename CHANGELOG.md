@@ -18,6 +18,27 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ---
 
+## [3.5.0] - 2025-05-01
+
+### Added
+
+* RAD-222: Add `bslDocsInclude` gradle property for filtering document generation.
+
+---
+
+## [3.4.2] - 2025-03-19
+
+### Changed
+
+* ACICGM-12: Allow overriding max aliases in a YAML file.
+
+## [3.4.1] - 2025-03-19
+
+### Changed
+
+* RAD-154: Dependency patching.
+---
+
 ## [3.4.0] - 2024-12-04
 
 ### Added
