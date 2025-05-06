@@ -69,7 +69,7 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         if (maxAliases != null) {
             int max = Integer.parseInt(maxAliases)
             project.logger.warn(
-              "Gradle property `${YAML_MAX_ALIASES}` is set to `${max}`. Setting Yaml loader option `setMaxAliasesForCollections`. Be aware of security implications.")
+                    "Gradle property `${YAML_MAX_ALIASES}` is set to `${max}`. Setting Yaml loader option `setMaxAliasesForCollections`. Be aware of security implications.")
             loaderOptions.setMaxAliasesForCollections(max);
         }
 
@@ -78,11 +78,11 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         dumperOptions.setPrettyFlow(true);
 
         return new Yaml(
-            new org.yaml.snakeyaml.constructor.Constructor(loaderOptions),
-            new org.yaml.snakeyaml.representer.Representer(dumperOptions),
-            dumperOptions,
-            loaderOptions
-        );
+                new org.yaml.snakeyaml.constructor.Constructor(loaderOptions),
+                new org.yaml.snakeyaml.representer.Representer(dumperOptions),
+                dumperOptions,
+                loaderOptions
+                );
     }()
 
     /* NOTE:
