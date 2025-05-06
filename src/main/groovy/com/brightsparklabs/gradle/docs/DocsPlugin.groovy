@@ -579,7 +579,7 @@ class DocsPlugin implements Plugin<Project> {
 
                 # The image produced by this stage hosts the website.
 
-                FROM kyma/docker-nginx:latest
+                FROM caddy:2.9.1
                 MAINTAINER brightSPARK Labs <enquire@brightsparklabs.com>
                 ARG BUILD_DATE=UNKNOWN
                 ARG VCS_REF=UNKNOWN
@@ -593,8 +593,8 @@ class DocsPlugin implements Plugin<Project> {
                 ENV META_BUILD_DATE=\${BUILD_DATE} \
                     META_VCS_REF=\${VCS_REF}
 
-                COPY --from=builder-jekyll /tmp/site /var/www
-                COPY --from=builder-pdf /src/build/docs/asciidoc /var/www/export
+                COPY --from=builder-jekyll /tmp/site /usr/share/caddy/
+                COPY --from=builder-pdf /src/build/docs/asciidoc /usr/share/caddy/export
                 """.stripIndent().trim()
 
                 def dockerFile = new File(outputDir, "Dockerfile")
