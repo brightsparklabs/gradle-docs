@@ -17,6 +17,7 @@ import org.gradle.api.UnknownTaskException
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -63,14 +64,17 @@ class DocsPlugin implements Plugin<Project> {
 
         final File baseOutputDirectory = project.file('build/brightsparklabs/docs')
         final File jinjaOutputDir = new File(baseOutputDirectory, 'jinjaProcessed')
+        final File themesDir = new File(baseOutputDirectory, 'themes')
         final File buildscriptVarsDir = new File(baseOutputDirectory, 'buildscriptVariables')
         final File dockerfileOutputDir = new File(baseOutputDirectory, 'dockerfile')
         final File dockerPdfOutputDir = new File(baseOutputDirectory, 'pdf')
         final File websiteOutputDir = new File(baseOutputDirectory, 'website')
 
+        def global_context = getGlobalContext(project, config)
+
         setupJinjaPreProcessingTasks(project, jinjaOutputDir, buildscriptVarsDir)
-        setupAsciiDoctor(project, config, jinjaOutputDir)
-        setupDockerFileTask(project, config, dockerfileOutputDir)
+        setupAsciiDoctor(project, config, global_context, jinjaOutputDir, themesDir)
+        setupDockerFileTask(project, config, global_context, dockerfileOutputDir)
 
         def dockerOrPodman = getDockerExecutableName(project)
         if (dockerOrPodman.isEmpty()) {
@@ -264,11 +268,13 @@ class DocsPlugin implements Plugin<Project> {
      * @param config Configuration for this plugin.
      * @param jinjaOutputDir Directory to output rendered Jinja2 templates.
      */
-    private void setupAsciiDoctor(Project project, DocsPluginExtension config, File jinjaOutputDir) {
+    private void setupAsciiDoctor(Project project, DocsPluginExtension config, Map<String, Object>
+            global_context, File jinjaOutputDir,
+            File themesDir) {
         project.plugins.apply 'org.asciidoctor.jvm.convert'
         project.plugins.apply 'org.asciidoctor.jvm.pdf'
 
-        // creating aliases nested under our BSL group for clarity
+        // Creating aliases nested under our BSL group for clarity.
         project.tasks.register('bslAsciidoctor') {
             group = "brightSPARK Labs - Docs"
             description = "Alias for `asciidoctor` task."
@@ -337,7 +343,34 @@ class DocsPlugin implements Plugin<Project> {
             }
         }
 
-        // Use `afterEvaluate` in case another task add the `build` task.
+        project.tasks.register('bslGradleDocsExtractResources') {
+            group = "brightSPARK Labs - Docs"
+            description = "Extracts resources from the Gradle Docs plugin JAR to the filesystem."
+
+            def resourceToOutput = [
+                "/themes/brightspark-labs-theme.yml": [
+                    Paths.get("${themesDir}/brightspark-labs-theme.yml")
+                ],
+                "/cover-page-logo.svg": [
+                    Paths.get("${themesDir}/cover-page-logo.svg"),
+                    // Also copy logo to images directory so it can be used in Asciidoc files directly.
+                    Paths.get("${project.projectDir}/${config.buildImagesDir}/cover-page-logo.svg"),
+                ],
+            ]
+
+            outputs.files(resourceToOutput.values())
+
+            doLast {
+                resourceToOutput.each { resource, outputFiles ->
+                    outputFiles.each { outputFile ->
+                        extractResourceToFilesystem(project, resource,
+                                outputFile)
+                    }
+                }
+            }
+        }
+
+        // Use `afterEvaluate` in case another plugin has added the `build` task.
         project.afterEvaluate {
             project.asciidoctor {
                 sourceDir jinjaOutputDir
@@ -368,8 +401,8 @@ class DocsPlugin implements Plugin<Project> {
                      * 'sectnums':              -> Numbers headings.
                      * 'sectnumlevels':         -> Numbers all headings levels (1-5).
                      * 'source-highlighter'     -> Add syntax highlighting to source blocks.
-                     * 'title-logo-image'       -> Defines the configuration of the image for pdf cover pages.
                      * 'toc': 'left'            -> Places TOC on left hand site in HTML pages.
+                     * 'pdf-theme'              -> The theme to use for PDF generation.
                      *
                      * Appending `@` to lower precedence so that defaults can
                      * be overridden in Asciidoc documents. See:
@@ -377,6 +410,7 @@ class DocsPlugin implements Plugin<Project> {
                      */
 
                     Map<String, Object> pluginAttributes = [
+                        // Asciidoctor attributes.
                         'doctype@'           : 'book',
                         '!chapter-signifier' : '',
                         'icon-set@'          : 'fas',
@@ -385,9 +419,22 @@ class DocsPlugin implements Plugin<Project> {
                         'sectnums@'          : '',
                         'sectnumlevels@'     : '5',
                         'source-highlighter@': 'coderay',
-                        'title-logo-image@'  : config.titleLogoImage,
-                        'toc@'               : config.tocPosition
+                        'toc@'               : config.tocPosition,
+                        'pdf-theme@'         : config.theme.orElse('brightspark-labs'),
+
+                        // BSL attributes.
+                        'bsl_classification@'       : config.classification,
+                        'bsl_project_name@'         : global_context.sys.project_name,
+                        'bsl_project_description@'  : global_context.sys.project_description,
+                        'bsl_project_version@'      : global_context.sys.project_version,
+                        'bsl_repo_last_commit_hash@': global_context.sys.repo_last_commit.hash,
                     ]
+
+                    // If not using custom themes, must asciidoctor where to find the default theme.
+                    if (config.theme.isEmpty()) {
+                        pluginAttributes['pdf-themesdir@'] = themesDir
+                    }
+
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
                     pluginAttributes.values().removeIf { a -> !Objects.nonNull(a) }
@@ -405,6 +452,7 @@ class DocsPlugin implements Plugin<Project> {
                 }
             }
 
+            project.tasks.named('jinjaPreProcess') { dependsOn 'bslGradleDocsExtractResources' }
             project.tasks.named('asciidoctor') { dependsOn 'jinjaPreProcess' }
             project.tasks.named('asciidoctorPdf') { dependsOn 'jinjaPreProcess' }
             project.tasks.named('bslAsciidoctor') { dependsOn 'asciidoctor' }
@@ -416,13 +464,34 @@ class DocsPlugin implements Plugin<Project> {
     }
 
     /**
+     * Extracts a resource from this plugin's JAR file onto the filesystem.
+     *
+     * @param project This Gradle project.
+     * @param resourcePath Path of the resource within the JAR file (beginning with `/`).
+     * @param outputFile File to write the extracted resource to.
+     */
+    private void extractResourceToFilesystem(Project project, String resourcePath, Path outputFile) {
+        // Ensure all folder path for output file exists.
+        outputFile.getParent().toFile().mkdirs()
+
+        // Extract the resource out of this plugin's JAR file.
+        try {
+            final bytes = getClass().getResourceAsStream(resourcePath).readAllBytes();
+            outputFile.withOutputStream { stream -> stream.write(bytes) }
+        } catch (Exception ex) {
+            project.logger.error("Could not copy resource file `{}` to `{}`", resourcePath, outputFile, ex)
+            throw ex
+        }
+    }
+
+    /**
      * Adds the Dockerfile generation tasks.
      *
      * @param project Gradle project to add the task to.
      * @param config Configuration for this plugin.
      * @param outputDir Directory to store the generated Dockerfile to.
      */
-    private void setupDockerFileTask(Project project, DocsPluginExtension config, File outputDir) {
+    private void setupDockerFileTask(Project project, DocsPluginExtension config, Map<String, Object> global_context, File outputDir) {
         project.tasks.register(GENERATE_DOCKERFILE_TASK_NAME) {
             group = "brightSPARK Labs - Docs"
             description = "Generates a Dockerfile for hosting the documentation as a static website."
@@ -435,11 +504,10 @@ class DocsPlugin implements Plugin<Project> {
                 outputDir.mkdirs()
 
                 // Render the jekyll configuration files.
-                def context = getGlobalContext(project, config)
                 ["_config.yml", "Gemfile"].collect { filename ->
                     def templateUrl = getClass().getResource("/website/${filename}.j2")
                     def templateText = Resources.toString(templateUrl, Charsets.UTF_8)
-                    def fileContent = jinjava.render(templateText, context)
+                    def fileContent = jinjava.render(templateText, global_context)
 
                     def outputfile = new File(outputDir, filename)
                     outputfile.text = fileContent
