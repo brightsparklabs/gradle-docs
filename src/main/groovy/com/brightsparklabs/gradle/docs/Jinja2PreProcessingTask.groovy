@@ -37,12 +37,6 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     // CONSTANTS
     // -------------------------------------------------------------------------
 
-    /**
-     * Name of the default logo file in the resources directory. This is also used as the
-     * destination file name when copying client supplied logos.
-     */
-    public static final String DEFAULT_LOGO_FILENAME = 'cover-page-logo.svg'
-
     /** Name of the Gradle property used to control max aliases allowed by Yaml loader. */
     public static final String YAML_MAX_ALIASES = 'com.brightsparklabs.gradle.docs.YAML_MAX_ALIASES'
 
@@ -194,18 +188,6 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         project.copy {
             from project.file(config.sourceImagesDir)
             into buildImagesDir
-        }
-
-        // Copy logo into build directory so it can be referenced in Asciidoc.
-        final Path outputFile = Paths.get("${project.projectDir}/${config.buildImagesDir}/${DEFAULT_LOGO_FILENAME}")
-        try {
-            final logoBytes = config.logoFile
-                    .map { path -> path.toFile().readBytes() }
-                    .orElse(getClass().getResourceAsStream("/${DEFAULT_LOGO_FILENAME}").readAllBytes());
-            outputFile.withOutputStream { stream -> stream.write(logoBytes) }
-        } catch (Exception ex) {
-            logger.error("Could not copy logo file to build directory", ex)
-            throw ex
         }
 
         final Map<String, Object> context = DocsPlugin.getGlobalContext(project, config, now)

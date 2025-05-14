@@ -18,6 +18,14 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ---
 
+## [3.6.0] - 2025-05-14
+
+### Added
+
+* RAD-165: Add in-built BSL theme and apply by default.
+
+---
+
 ## [3.5.0] - 2025-05-01
 
 ### Added
