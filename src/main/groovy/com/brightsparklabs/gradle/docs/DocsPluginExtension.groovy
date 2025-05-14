@@ -43,18 +43,21 @@ class DocsPluginExtension {
     /** Name of the directory (relative to project root) where the images are copied for processing. Default: `build/docs/images/`. */
     String buildImagesDir = 'build/docs/images/'
 
-    /** Position to place the Table of Contents. Default `left`. */
+    /** Position to place the Table of Contents. Default: `left`. */
     String tocPosition = 'left'
 
-    /** Path to the logo file to use as the cover image. Defaults to the BSL logo. */
-    Optional<Path> logoFile = Optional.empty()
+    /** Classification to add to the docuemnt header/footer. Default: `OFFICIAL`. */
+    String classification = 'OFFICIAL'
 
     /**
-     * The value to use at the Asciidoc `title-logo-image` (i.e. cover page logo) attribute in all files.
-     * <p>
-     * Default:  `image:${Jinja2PreProcessingTask.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n`
+     * Theme to apply to PDF. Defaults to the brightSPARK Labs theme.
+     *
+     * To use a custom theme, ensure you have first configured the `pdfThemes` extension object
+     * from the AsciidoctorPdf plugin
+     * (https://asciidoctor.github.io/asciidoctor-gradle-plugin/master/user-guide/#asciidoctorj-pdf-plugin),
+     * then set this option to the name of the theme.
      */
-    String titleLogoImage = "image:${Jinja2PreProcessingTask.DEFAULT_LOGO_FILENAME}[pdfwidth=60%,align=right]\n"
+    Optional<String> theme = Optional.empty()
 
     /**
      * Modifications that will be made to the default asciidoctorj options for rendering the document.
