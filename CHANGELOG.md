@@ -16,6 +16,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
+* TERA-1868: Enable `asciidoctorj-diagram` by default.
+
 ---
 
 ## [3.6.0] - 2025-05-14

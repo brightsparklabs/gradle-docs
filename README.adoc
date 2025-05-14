@@ -925,19 +925,7 @@ src/main/resources/brightsparklabs-macros.j2
 
 === Asciidoctorj Diagram
 
-https://github.com/asciidoctor/asciidoctorj-diagram[asciidoctorj-diagram] can be enabled as
-https://asciidoctor.github.io/asciidoctor-gradle-plugin/development-3.x/user-guide/#diagram[per
-standard practice] in `build.gradle`:
-
-[source,groovy]
-----
-// Support asciidoctor-diagram image generation.
-asciidoctorj {
-    modules {
-        diagram.use()
-    }
-}
-----
+https://github.com/asciidoctor/asciidoctorj-diagram[asciidoctorj-diagram] is automatically enabled.
 
 In order to make use of the https://docs.asciidoctor.org/diagram-extension/latest/[various
 diagramming formats], the backing tool needs to be installed on the system.
