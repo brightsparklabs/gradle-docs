@@ -32,7 +32,10 @@ class DocsPlugin implements Plugin<Project> {
     /**
      * The default set of options that will be provided to AsciiDoctor for rendering the document.
      */
-    public static final Map<String, Object> DEFAULT_ASCIIDOCTOR_OPTIONS = ["doctype@": 'book']
+    public static final Map<String, Object> DEFAULT_ASCIIDOCTOR_OPTIONS = [
+        // `book` adds a cover page which is generally what is desired.
+        "doctype@": 'book'
+    ]
 
     /**
      * The name of the task which generates the Dockerfile for hosting the documentation as a static website.
@@ -382,13 +385,25 @@ class DocsPlugin implements Plugin<Project> {
                 baseDirFollowsSourceFile()
 
                 asciidoctorj {
-                    // 'book' adds a cover page to the PDF
+                    modules {
+                        // Support asciidoctor-diagram image generation.
+                        diagram.use()
+                    }
+
+                    // ----------------------------------------
+                    // SET ASCIIDOCTOR OPTIONS
+                    // ----------------------------------------
+
                     Map<String, Object> pluginOptions = [:]
                     pluginOptions.putAll(DEFAULT_ASCIIDOCTOR_OPTIONS)
                     pluginOptions.putAll(config.options)
                     // Allows for the removal of any options for which the user defines a value of null
                     pluginOptions.values().removeIf { o -> !Objects.nonNull(o) }
                     options = pluginOptions
+
+                    // ----------------------------------------
+                    // SET ASCIIDOCTOR GLOBAL ATTRIBUTES
+                    // ----------------------------------------
 
                     /*
                      * This is the list of default configurations that can be added to or modified via the attributes map

@@ -18,11 +18,15 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ---
 
-## [3.6.0] - 2025-05-14
+## [4.0.0] - 2025-05-15
 
 ### Added
 
 * RAD-165: Add in-built BSL theme and apply by default.
+
+### Changed
+
+* TERA-1868: Enable `asciidoctorj-diagram` by default.
 
 ---
 
