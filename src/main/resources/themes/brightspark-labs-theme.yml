@@ -1,0 +1,48 @@
+extends: default
+
+role:
+  red:
+    font-color: #FF0000
+  lightgray:
+    font-color: #D3D3D3
+  slategray:
+    font-color: #708090
+  white:
+    font-color: #FFFFFF
+  black:
+    font-color: #000000
+
+title-page:
+  # TODO; RAD-152 Sort out colours.
+  #background-color: $role-black-font-color
+  #font-color: $role-white-font-color
+
+  authors:
+    content: '{author} <{email}>'
+  logo:
+    image: image:cover-page-logo.svg[pdfwidth=60%,align=right]
+
+page:
+  margin: [1.5cm, 1.75cm, 1.5cm, 1.75cm]
+
+header:
+  height: 1.5cm
+  recto: &header_recto
+    center:
+      content: '[.red]#*{bsl_classification}*#'
+  verso: *header_recto
+
+footer:
+  recto: &footer_recto
+    left:
+      content: '[.lightgray]#{bsl_repo_last_commit_hash}#'
+    center:
+      content: '[.red]#*{bsl_classification}*#'
+    right:
+      content: '*{page-number}* of *{page-count}*'
+  verso: *footer_recto
+
+table:
+  head:
+    background-color: $role-slategray-font-color
+    font-color: $role-white-font-color
