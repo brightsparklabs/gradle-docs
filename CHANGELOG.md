@@ -12,6 +12,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
+* RAD-226: Support internal references in variables file
+
 ### Fixed
 
 ### Changed
