@@ -260,14 +260,6 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
             String yamlText = variablesFile.text
             vars = yaml.load(yamlText)
 
-            // Do a Jinja pass of the variables file to resolve internal references.
-            def jinjaContext = [
-                // Using `this.` to reference variables in the same file seems intuitive.
-                'this': vars,
-            ]
-            yamlText = jinjava.render(yamlText, jinjaContext)
-            vars = yaml.load(yamlText)
-
             varsFileLastCommit = getLastCommit(projectRelativePath + variablesFilePathRelativeToDocsProject, now)
         }
 
