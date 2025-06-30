@@ -73,6 +73,14 @@ class DocsPlugin implements Plugin<Project> {
         final File dockerPdfOutputDir = new File(baseOutputDirectory, 'pdf')
         final File websiteOutputDir = new File(baseOutputDirectory, 'website')
 
+        project.ext.bslGradleDocs = [
+            buildScriptVariablesDirs: buildscriptVarsDir,
+            createBuildscriptVariablesFile: { filePath ->
+                createBuildscriptVariablesFile(buildscriptVarsDir, filePath)
+            }
+        ]
+        project.logger.info('The following has been exposed under `project.ext.bslGradleDocs:\n{}', project.ext.bslGradleDocs)
+
         def global_context = getGlobalContext(project, config)
 
         setupJinjaPreProcessingTasks(project, jinjaOutputDir, buildscriptVarsDir)
@@ -89,13 +97,6 @@ class DocsPlugin implements Plugin<Project> {
         setupBuildInDocker(project, config, dockerPdfOutputDir, dockerOrPodman)
         setupWebsiteTasks(project, config, websiteOutputDir, dockerOrPodman)
 
-        project.ext.bslGradleDocs = [
-            buildScriptVariablesDirs: buildscriptVarsDir,
-            createBuildscriptVariablesFile: { filePath ->
-                createBuildscriptVariablesFile(buildscriptVarsDir, filePath)
-            }
-        ]
-        project.logger.info('The following has been exposed under `project.ext.bslGradleDocs:\n{}', project.ext.bslGradleDocs)
     }
 
     // --------------------------------------------------------------------------
