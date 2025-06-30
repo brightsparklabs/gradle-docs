@@ -16,6 +16,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Fixed
 
+* ACICGM-68: Return bslGradleDocs task before performing docker check.
+
 ### Changed
 
 ---
