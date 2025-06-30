@@ -96,7 +96,6 @@ class DocsPlugin implements Plugin<Project> {
         dockerOrPodman = dockerOrPodman.get()
         setupBuildInDocker(project, config, dockerPdfOutputDir, dockerOrPodman)
         setupWebsiteTasks(project, config, websiteOutputDir, dockerOrPodman)
-
     }
 
     // --------------------------------------------------------------------------
