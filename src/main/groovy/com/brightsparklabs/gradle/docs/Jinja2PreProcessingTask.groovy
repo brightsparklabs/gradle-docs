@@ -22,8 +22,10 @@ import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 
+import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.security.MessageDigest
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -409,11 +411,13 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         // OUTPUT FILE CONTEXT
         // ------------------------------------------------------------
 
+        Map<String, Object> templateFileFirstCommit = getFirstCommit(projectRelativePath + templateSrcFile)
         Map<String, Object> outputFileContext = [
             name       : templateOutputFileName,
             // Relative to output directory.
             path       : templateOutputFile.getPath().replaceFirst(jinjaOutputDir.toString() + '/?', ''),
             last_commit: templateFileLastCommit,
+            first_commit: templateFileFirstCommit
         ]
         context.put('output_file', outputFileContext)
 
@@ -600,6 +604,54 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
             result.put("timestamp", zonedTimestamp)
             result.put("timestamp_formatted", getFormattedTimestamps(zonedTimestamp))
         }
+        return result
+    }
+
+    /**
+     * Get the first commit of the given file path, i.e. the commit in which the file was added.
+     *
+     * We use the returned values to create a unique document ID.
+     *
+     * @param relativeFilePath The path of the file.
+     * @return A map with keys `first_commit_id` and `file_name_id`, where `first_commit_id` is the
+     *   commit hash and `file_name_id` is the SHA-256 hash of the path (relative to repo root) of
+     *   the file when it was first added (which may be different if the file was renamed or moved).
+     *   Both values default to `unspecified` if the given path is not under git control.
+     */
+    static Map<String, Object> getFirstCommit(String relativeFilePath) {
+        final Map<String, Object> result = [
+            first_commit_id    : 'unspecified',
+            file_name_id       : 'unspecified',
+        ]
+
+        // Get the hash of the commit when the file was first added.
+        // NOTE: Use array execution instead of string execution in case parameters contain spaces
+        def firstCommitHashCommand = 'git log -n 1 --pretty=format:%h --diff-filter=A --follow --'.tokenize()
+        firstCommitHashCommand << relativeFilePath
+        String firstCommitHash = firstCommitHashCommand.execute().text.trim()
+        if (!firstCommitHash.isEmpty()) {
+            result.put('first_commit_id', firstCommitHash)
+        }
+
+        // Get the SHA-256 hash of the path (relative to project root) of the file when it was first
+        // added.
+        // NOTE: Use array execution instead of string execution in case parameters contain spaces
+        def firstCommitFilePathCommand = "git log -n 1 --pretty=format:%f --diff-filter=A --follow --name-only --".tokenize()
+        firstCommitFilePathCommand << relativeFilePath
+        // The above command produces two lines. The first line contains the branch name, and
+        // the second contains the filepath that we want. Pipe through tail to get the filepath.
+        def tailCommand = "tail -n 1".tokenize()
+        String firstCommitFilePath = (firstCommitFilePathCommand.execute() | tailCommand.execute()).text.trim()
+        if (!firstCommitFilePath.isEmpty()) {
+            // Generate SHA-256 hash of file path.
+            MessageDigest digest = MessageDigest.getInstance('SHA-256')
+            byte[] sha256Bytes = digest.digest(firstCommitFilePath.getBytes(StandardCharsets.UTF_8))
+            String sha256HexString = HexFormat.of().formatHex(sha256Bytes)
+            // Take the first 7 characters as the file name ID.
+            String fileNameId = sha256HexString.substring(0,7)
+            result.put('file_name_id', fileNameId)
+        }
+
         return result
     }
 
