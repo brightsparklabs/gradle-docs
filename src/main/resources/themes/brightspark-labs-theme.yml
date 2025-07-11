@@ -46,5 +46,5 @@ table:
   head:
     # NOTE: This background needs to work for the specified `font-color` as well as the overall
     # document `link-color`.
-    background-color: $role-arsenic-font-color'
+    background-color: $role-arsenic-font-color
     font-color: $role-white-font-color
