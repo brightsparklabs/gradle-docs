@@ -5,8 +5,8 @@ role:
     font-color: #FF0000
   lightgray:
     font-color: #D3D3D3
-  slategray:
-    font-color: #708090
+  arsenic:
+    font-color: #3B444B
   white:
     font-color: #FFFFFF
   black:
@@ -44,5 +44,7 @@ footer:
 
 table:
   head:
-    background-color: $role-slategray-font-color
+    # NOTE: This background needs to work for the specified `font-color` as well as the overall
+    # document `link-color`.
+    background-color: $role-arsenic-font-color'
     font-color: $role-white-font-color
