@@ -16,6 +16,10 @@ title-page:
   # TODO; RAD-152 Sort out colours.
   #background-color: $role-black-font-color
   #font-color: $role-white-font-color
+  # See: https://docs.asciidoctor.org/pdf-converter/latest/background-images/ for options.
+  #background-image: image:/x/endless-constellation.svg[]
+  #background-image: image:/x/endless-constellation.svg[fit=cover]
+  #background-image: image:/x/endless-constellation.svg[position=bottom]
 
   authors:
     content: '{author} <{email}>'
