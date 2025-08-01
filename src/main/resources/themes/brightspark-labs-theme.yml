@@ -39,7 +39,7 @@ header:
 footer:
   recto: &footer_recto
     left:
-      content: '[.lightgray]#{bsl_repo_last_commit_hash}#'
+      content: '[.lightgray .small]#Document ID: {documentid} | Commit ID: {bsl_repo_last_commit_hash}#'
     center:
       content: '[.red]#*{bsl_classification}*#'
     right:

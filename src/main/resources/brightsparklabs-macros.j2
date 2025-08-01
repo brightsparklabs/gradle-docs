@@ -14,6 +14,7 @@
  # - `chapter-signifier` removes the `Chapter` prefix added by `sectnums`.
  #}
 {%- macro add_default_attributes() -%}
+:documentid: {{ output_file.first_commit.first_commit_id }}-{{ output_file.first_commit.file_name_id }}
 :revnumber: {{ output_file.last_commit.hash }}
 :revdate: {{ output_file.last_commit.timestamp_formatted.iso_utc_space }}
 :Author Initials: BSL
