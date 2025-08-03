@@ -38,7 +38,7 @@ repositories {
 
 dependencies {
     implementation(
-            'com.hubspot.jinjava:jinjava:2.7.4',
+            'com.hubspot.jinjava:jinjava:2.8.0',
             // JRuby (used by Asciidoctor) does not support snakeyaml version 2 yet.
             //   org.jruby.exceptions.LoadError: (LoadError) bad SnakeYAML version 2.2, required 1.21 or higher;
             'org.yaml:snakeyaml:1.33',
