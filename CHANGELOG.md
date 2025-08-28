@@ -18,6 +18,22 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ---
 
+## [4.1.0] - 2025-08-28
+
+### Added
+
+* RAD-226: Support internal references in variables file
+
+### Fixed
+
+* ACICGM-68: Return bslGradleDocs task before performing docker check.
+
+### Changed
+
+* BD-135: Use table header color which works for link-color.
+
+---
+
 ## [4.0.0] - 2025-05-15
 
 ### Added
