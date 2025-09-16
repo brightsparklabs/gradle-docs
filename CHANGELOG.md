@@ -12,6 +12,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
+* NSWCCCLOUD-4: Add macros for standard date formatting.
+
 ### Fixed
 
 ### Changed
@@ -22,7 +24,7 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
-* RAD-226: Support internal references in variables file
+* RAD-226: Support internal references in variables file.
 
 ### Fixed
 
