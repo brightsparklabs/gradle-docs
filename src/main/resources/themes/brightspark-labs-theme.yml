@@ -333,7 +333,7 @@ header:
 footer:
   recto: &footer_recto
     left:
-      content: '[.lightgray]#{bsl_repo_last_commit_hash}#'
+      content: '[.gainsboro]#{bsl_repo_last_commit_hash}#'
     center:
       content: '[.red]#*{bsl_classification}*#'
     right:
