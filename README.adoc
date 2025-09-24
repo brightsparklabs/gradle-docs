@@ -52,6 +52,24 @@ https://plugins.gradle.org/plugin/com.brightsparklabs.gradle.docs[image:https://
 By default:
 
 * AsciiDoc files should be stored under `src/docs/`.
+** Any of the https://en.wikipedia.org/wiki/Web_colors#Extended_colors[extended HTML colours] can be used and will render in the PDFs.
+   The colour name should be completely in lowercase.
+   E.g.
++
+----
+[.lime]#This is lime#
+
+icon:circle[role=navy, size=4x] A navy circle
+----
++
+Will render as:
++
+====
+[.lime]#This is lime#
+
+icon:circle[role=navy, size=4x] A navy circle
+====
+
 * Images should be stored under `src/images`, which can then be referenced via
   https://docs.asciidoctor.org/asciidoc/latest/macros/images/[AsciiDoc image macros].
 * Any files ending with `.j2` will first be processed by https://github.com/HubSpot/jinjava[Jinjava]

@@ -23,3 +23,23 @@
 :sectnumlevels: 5
 :!chapter-signifier:
 {%- endmacro bsl_default_attributes() -%}
+
+{#
+ # Formats the date/datetime object as: DD/MM/YYYY.
+ #
+ # Args:
+ #   date_object: A date/datetime object.
+ #}
+{%- macro format_date(date_object)) -%}
+{{ date_object|datetimeformat("%d/%m/%Y") }}
+{%- endmacro format_date() -%}
+
+{#
+ # Formats the date/datetime object as: YYYY-MM-DD.
+ #
+ # Args:
+ #   date_object: A date/datetime object.
+ #}
+{%- macro format_date_iso(date_object)) -%}
+{{ date_object|datetimeformat("%Y-%m-%d") }}
+{%- endmacro format_date_iso() -%}

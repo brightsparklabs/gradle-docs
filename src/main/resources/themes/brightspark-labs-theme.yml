@@ -1,16 +1,310 @@
 extends: default
 
+# ------------------------------------------------------------------------------
+# COLOURS
+# ------------------------------------------------------------------------------
+
 role:
-  red:
-    font-color: #FF0000
-  lightgray:
-    font-color: #D3D3D3
-  arsenic:
-    font-color: #3B444B
-  white:
-    font-color: #FFFFFF
+
+  # --------------------------------------------------------
+  # The extended colours.
+  # Based off: https://en.wikipedia.org/wiki/Web_colors#Extended_colors
+  # --------------------------------------------------------
+
+  aliceblue:
+    font-color: '#F0F8FF'
+  antiquewhite:
+    font-color: '#FAEBD7'
+  aqua:
+    font-color: '#00FFFF'
+  aquamarine:
+    font-color: '#7FFFD4'
+  azure:
+    font-color: '#F0FFFF'
+  beige:
+    font-color: '#F5F5DC'
+  bisque:
+    font-color: '#FFE4C4'
   black:
-    font-color: #000000
+    font-color: '#000000'
+  blanchedalmond:
+    font-color: '#FFEBCD'
+  blue:
+    font-color: '#0000FF'
+  blueviolet:
+    font-color: '#8A2BE2'
+  brown:
+    font-color: '#A52A2A'
+  burlywood:
+    font-color: '#DEB887'
+  cadetblue:
+    font-color: '#5F9EA0'
+  chartreuse:
+    font-color: '#7FFF00'
+  chocolate:
+    font-color: '#D2691E'
+  coral:
+    font-color: '#FF7F50'
+  cornflowerblue:
+    font-color: '#6495ED'
+  cornsilk:
+    font-color: '#FFF8DC'
+  crimson:
+    font-color: '#DC143C'
+  cyan:
+    font-color: '#00FFFF'
+  darkblue:
+    font-color: '#00008B'
+  darkcyan:
+    font-color: '#008B8B'
+  darkgoldenrod:
+    font-color: '#B8860B'
+  darkgray:
+    font-color: '#A9A9A9'
+  darkgreen:
+    font-color: '#006400'
+  darkkhaki:
+    font-color: '#BDB76B'
+  darkmagenta:
+    font-color: '#8B008B'
+  darkolivegreen:
+    font-color: '#556B2F'
+  darkorange:
+    font-color: '#FF8C00'
+  darkorchid:
+    font-color: '#9932CC'
+  darkred:
+    font-color: '#8B0000'
+  darksalmon:
+    font-color: '#E9967A'
+  darkseagreen:
+    font-color: '#8FBC8B'
+  darkslateblue:
+    font-color: '#483D8B'
+  darkslategray:
+    font-color: '#2F4F4F'
+  darkturquoise:
+    font-color: '#00CED1'
+  darkviolet:
+    font-color: '#9400D3'
+  deeppink:
+    font-color: '#FF1493'
+  deepskyblue:
+    font-color: '#00BFFF'
+  dimgray:
+    font-color: '#696969'
+  dodgerblue:
+    font-color: '#1E90FF'
+  firebrick:
+    font-color: '#B22222'
+  floralwhite:
+    font-color: '#FFFAF0'
+  forestgreen:
+    font-color: '#228B22'
+  fuchsia:
+    font-color: '#FF00FF'
+  gainsboro:
+    font-color: '#DCDCDC'
+  ghostwhite:
+    font-color: '#F8F8FF'
+  gold:
+    font-color: '#FFD700'
+  goldenrod:
+    font-color: '#DAA520'
+  gray:
+    font-color: '#808080'
+  green:
+    font-color: '#008000'
+  greenyellow:
+    font-color: '#ADFF2F'
+  honeydew:
+    font-color: '#F0FFF0'
+  hotpink:
+    font-color: '#FF69B4'
+  indianred:
+    font-color: '#CD5C5C'
+  indigo:
+    font-color: '#4B0082'
+  ivory:
+    font-color: '#FFFFF0'
+  khaki:
+    font-color: '#F0E68C'
+  lavender:
+    font-color: '#E6E6FA'
+  lavenderblush:
+    font-color: '#FFF0F5'
+  lawngreen:
+    font-color: '#7CFC00'
+  lemonchiffon:
+    font-color: '#FFFACD'
+  lightblue:
+    font-color: '#ADD8E6'
+  lightcoral:
+    font-color: '#F08080'
+  lightcyan:
+    font-color: '#E0FFFF'
+  lightgoldenrodyellow:
+    font-color: '#FAFAD2'
+  lightgray:
+    font-color: '#D3D3D3'
+  lightgreen:
+    font-color: '#90EE90'
+  lightpink:
+    font-color: '#FFB6C1'
+  lightsalmon:
+    font-color: '#FFA07A'
+  lightseagreen:
+    font-color: '#20B2AA'
+  lightskyblue:
+    font-color: '#87CEFA'
+  lightslategray:
+    font-color: '#778899'
+  lightsteelblue:
+    font-color: '#B0C4DE'
+  lightyellow:
+    font-color: '#FFFFE0'
+  lime:
+    font-color: '#00FF00'
+  limegreen:
+    font-color: '#32CD32'
+  linen:
+    font-color: '#FAF0E6'
+  magenta:
+    font-color: '#FF00FF'
+  maroon:
+    font-color: '#800000'
+  mediumaquamarine:
+    font-color: '#66CDAA'
+  mediumblue:
+    font-color: '#0000CD'
+  mediumorchid:
+    font-color: '#BA55D3'
+  mediumpurple:
+    font-color: '#9370DB'
+  mediumseagreen:
+    font-color: '#3CB371'
+  mediumslateblue:
+    font-color: '#7B68EE'
+  mediumspringgreen:
+    font-color: '#00FA9A'
+  mediumturquoise:
+    font-color: '#48D1CC'
+  mediumvioletred:
+    font-color: '#C71585'
+  midnightblue:
+    font-color: '#191970'
+  mintcream:
+    font-color: '#F5FFFA'
+  mistyrose:
+    font-color: '#FFE4E1'
+  moccasin:
+    font-color: '#FFE4B5'
+  navajowhite:
+    font-color: '#FFDEAD'
+  navy:
+    font-color: '#000080'
+  oldlace:
+    font-color: '#FDF5E6'
+  olive:
+    font-color: '#808000'
+  olivedrab:
+    font-color: '#6B8E23'
+  orange:
+    font-color: '#FFA500'
+  orangered:
+    font-color: '#FF4500'
+  orchid:
+    font-color: '#DA70D6'
+  palegoldenrod:
+    font-color: '#EEE8AA'
+  palegreen:
+    font-color: '#98FB98'
+  paleturquoise:
+    font-color: '#AFEEEE'
+  palevioletred:
+    font-color: '#DB7093'
+  papayawhip:
+    font-color: '#FFEFD5'
+  peachpuff:
+    font-color: '#FFDAB9'
+  peru:
+    font-color: '#CD853F'
+  pink:
+    font-color: '#FFC0CB'
+  plum:
+    font-color: '#DDA0DD'
+  powderblue:
+    font-color: '#B0E0E6'
+  purple:
+    font-color: '#800080'
+  rebeccapurple:
+    font-color: '#663399'
+  red:
+    font-color: '#FF0000'
+  rosybrown:
+    font-color: '#BC8F8F'
+  royalblue:
+    font-color: '#4169E1'
+  saddlebrown:
+    font-color: '#8B4513'
+  salmon:
+    font-color: '#FA8072'
+  sandybrown:
+    font-color: '#F4A460'
+  seagreen:
+    font-color: '#2E8B57'
+  seashell:
+    font-color: '#FFF5EE'
+  sienna:
+    font-color: '#A0522D'
+  silver:
+    font-color: '#C0C0C0'
+  skyblue:
+    font-color: '#87CEEB'
+  slateblue:
+    font-color: '#6A5ACD'
+  slategray:
+    font-color: '#708090'
+  snow:
+    font-color: '#FFFAFA'
+  springgreen:
+    font-color: '#00FF7F'
+  steelblue:
+    font-color: '#4682B4'
+  tan:
+    font-color: '#D2B48C'
+  teal:
+    font-color: '#008080'
+  thistle:
+    font-color: '#D8BFD8'
+  tomato:
+    font-color: '#FF6347'
+  turquoise:
+    font-color: '#40E0D0'
+  violet:
+    font-color: '#EE82EE'
+  wheat:
+    font-color: '#F5DEB3'
+  white:
+    font-color: '#FFFFFF'
+  whitesmoke:
+    font-color: '#F5F5F5'
+  yellow:
+    font-color: '#FFFF00'
+  yellowgreen:
+    font-color: '#9ACD32'
+
+  # ----------------------------------------------------------------------------
+  # Custom colours used in our theme above
+  # ----------------------------------------------------------------------------
+
+  # This colour is chosen specifically as it works well with table headers.
+  arsenic:
+    font-color: '#3B444B'
+
+# ------------------------------------------------------------------------------
+# ELEMENTS
+# ------------------------------------------------------------------------------
 
 title-page:
   # TODO; RAD-152 Sort out colours.
@@ -39,7 +333,7 @@ header:
 footer:
   recto: &footer_recto
     left:
-      content: '[.lightgray]#{bsl_repo_last_commit_hash}#'
+      content: '[.gainsboro]#{bsl_repo_last_commit_hash}#'
     center:
       content: '[.red]#*{bsl_classification}*#'
     right:
