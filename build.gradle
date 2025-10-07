@@ -13,7 +13,7 @@ plugins {
     // Apply the Java Gradle plugin development plugin to add support for developing Gradle plugins.
     id "java-gradle-plugin"
     id "com.gradle.plugin-publish" version "2.0.0"
-    id 'maven-publish'
+    id "maven-publish"
 
     // Apply the Groovy plugin to add support for Groovy.
     id "groovy"
@@ -22,7 +22,7 @@ plugins {
     id "java"
 
     // Apply the brightSPARK Labs plugin for standardisation.
-    id "com.brightsparklabs.gradle.baseline" version "5.0.0"
+    id "com.brightsparklabs.gradle.baseline" version "5.1.0"
 }
 
 // -----------------------------------------------------------------------------
@@ -103,21 +103,12 @@ check {
     dependsOn(tasks.functionalTest)
 }
 
-// Should not be needed with "com.gradle.plugin-publish:1.0.0"
-// See: https://github.com/gradle/gradle/issues/19331
-project.afterEvaluate {
-    tasks.named("generateMetadataFileForPluginMavenPublication") {
-        dependsOn("jar")
-    }
-}
-
 // -----------------------------------------------------------------------------
 // Shadow Plugin (from "com.brightsparklabs.gradle.baseline")
 // -----------------------------------------------------------------------------
 
-// We never need a shadow jar for this plugin.
-shadowJar.enabled = false
-
-shadowJar {
-    archiveClassifier = null
+bslBaseline {
+    // The `com.gradle.plugin-publish` adds/configures `shadowJar`.
+    // Disable the BSL baseline one to avoid conflicts.
+    enablePlugins.shadowJar = false
 }
