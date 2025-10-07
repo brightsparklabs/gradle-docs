@@ -115,6 +115,9 @@ project.afterEvaluate {
 // Shadow Plugin (from "com.brightsparklabs.gradle.baseline")
 // -----------------------------------------------------------------------------
 
+// We never need a shadow jar for this plugin.
+shadowJar.enabled = false
+
 shadowJar {
     archiveClassifier = null
 }
