@@ -43,3 +43,15 @@
 {%- macro format_date_iso(date_object)) -%}
 {{ date_object|datetimeformat("%Y-%m-%d") }}
 {%- endmacro format_date_iso() -%}
+
+{#
+ # Formats a float as currency.
+ #
+ # E.g. 123456.789 -> $1,234,456.78.
+ #
+ # Args:
+ #   value: A float.
+ #}
+{%- macro format_currency(value)) -%}
+${{ "%,.2f"|format(value) }}
+{%- endmacro format_currency(value)) -%}
