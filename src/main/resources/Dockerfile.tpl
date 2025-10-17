@@ -1,5 +1,5 @@
 ##
- # Image used to build and serve a staic documentation site.
+ # Image used to build and serve a static documentation site.
  # _____________________________________________________________________________
  #
  # Created by brightSPARK Labs
@@ -65,7 +65,7 @@ COPY --from=builder-pdf /src/build/docs/asciidoc .
 FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
 
 # Directory where to build the image from.
-ARG BUILD_IMAGES_DIR="build/docs/images/"
+ARG BUILD_IMAGES_DIR="${config.buildImagesDir}"
 
 # Allow gradle-docs plugin to read git details on files.
 RUN apk add git
@@ -92,7 +92,7 @@ RUN mkdir -p "\${BUILD_IMAGES_DIR}"
 FROM node:24-alpine3.21 AS builder-jekyll
 
 # Directory where to build the image from.
-ARG BUILD_IMAGES_DIR="build/docs/images/"
+ARG BUILD_IMAGES_DIR="${config.buildImagesDir}"
 
 # Install Jekyll dependencies.
 # See https://dalwar23.com/how-to-install-jekyll-in-alpine-linux/
