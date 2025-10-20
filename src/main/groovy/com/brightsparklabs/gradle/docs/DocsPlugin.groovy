@@ -531,10 +531,8 @@ class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Read in the Dockerfile contents and then manually perform string extrapolation.
-                def rawDockerFileContent = Resources.toString(getClass().getResource("/Dockerfile.tpl"), Charsets.UTF_8)
-                def engine = new SimpleTemplateEngine()
-                def template = engine.createTemplate(rawDockerFileContent)
-                def dockerFileContent = template.make([config: config]).toString()
+                def rawDockerFileContent = Resources.toString(getClass().getResource("/Dockerfile.j2"), Charsets.UTF_8)
+                def dockerFileContent = jinjava.render(rawDockerFileContent, [config: config])
 
                 def dockerFile = new File(outputDir, "Dockerfile")
                 dockerFile.text = dockerFileContent
