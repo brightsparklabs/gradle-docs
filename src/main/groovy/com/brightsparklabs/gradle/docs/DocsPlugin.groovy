@@ -21,8 +21,6 @@ import java.nio.file.Paths
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-import groovy.text.SimpleTemplateEngine
-
 /**
  * The brightSPARK Labs Docs Plugin.
  */
