@@ -1109,15 +1109,14 @@ shall be be available under the `brightsparklabs` namespace:
 
 These can be used as follows:
 
-....
+[source,jinja2]
+----
 {{ brightsparklabs.add_default_attributes() }}
-....
+----
 
 Macros are defined in:
 
-....
-src/main/resources/brightsparklabs-macros.j2
-....
+* link:src/main/resources/brightsparklabs-macros.j2[]
 
 === Asciidoctorj Diagram
 

@@ -7,7 +7,10 @@ source "https://rubygems.org"
 #
 # This will help ensure the proper Jekyll version is running.
 # Happy Jekylling!
-gem "jekyll", "~> 4.0.0"
+# NOTE: Older Jekyll versions (<4.3.3) with newer versions of Ruby have a bug around the logger, i.e.
+# /usr/lib/ruby/3.3.0/logger.rb:384:in `level': undefined method `[]' for nil (NoMethodError)
+# See https://stackoverflow.com/questions/79557473/why-cant-i-build-a-jekyll-site-locally-with-this-downloaded-theme
+gem "jekyll", ">= 4.3.3"
 
 # This is the default theme for new Jekyll sites. You may change this to anything you like.
 gem "{{ config.website.theme|default("just-the-docs") }}"

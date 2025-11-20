@@ -321,19 +321,22 @@ title-page:
     image: image:cover-page-logo.svg[pdfwidth=60%,align=right]
 
 page:
-  margin: [1.5cm, 1.75cm, 1.5cm, 1.75cm]
+  margin: [2.0cm, 1.75cm, 1.5cm, 1.75cm]
 
 header:
-  height: 1.5cm
+  height: 2.0cm
   recto: &header_recto
     center:
       content: '[.red]#*{bsl_classification}*#'
   verso: *header_recto
 
 footer:
+  height: 1.5cm
   recto: &footer_recto
     left:
-      content: '[.gainsboro]#{bsl_repo_last_commit_hash}#'
+      content: |
+        *brightSPARK Labs*
+        [.gainsboro]#| Ref: {bsl_repo_last_commit_hash}#
     center:
       content: '[.red]#*{bsl_classification}*#'
     right:
