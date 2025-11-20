@@ -321,7 +321,7 @@ title-page:
     image: image:cover-page-logo.svg[pdfwidth=60%,align=right]
 
 page:
-  margin: [2.0cm, 1.75cm, 1.5cm, 1.75cm]
+  margin: [2.0cm, 1.75cm, 2.0cm, 1.75cm]
 
 header:
   height: 2.0cm
