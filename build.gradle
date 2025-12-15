@@ -48,7 +48,7 @@ dependencies {
             'org.asciidoctor:asciidoctor-gradle-jvm-pdf:4.0.5',
             )
     // Use the awesome Spock testing and specification framework.
-    testImplementation "org.spockframework:spock-core:2.3-groovy-4.0"
+    testImplementation "org.spockframework:spock-core:2.4-groovy-5.0"
 }
 
 // -----------------------------------------------------------------------------
