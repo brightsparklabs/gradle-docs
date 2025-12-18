@@ -27,12 +27,15 @@ Applies brightSPARK Labs standardisation to project documentation.
 [source,shell]
 ----
 ./gradlew build
-
-# publish
-./gradlew publishPlugins
 ----
 
-IMPORTANT: Ensure the right Java version is specified in `.github/` files.
+=== Publishing
+
+To publish a new version:
+
+* If bumping Java, then ensure the right version is specified in `.github/` files.
+* Use `git flow` to merge it into `master`.
+* Push `master` and the CI server will publish via `./gradlew publishPlugins`.
 
 == Usage
 
