@@ -18,7 +18,7 @@
 #
 #   docker build -t docs -f <GENERATED_DOCKER_FILE> --target builder-pdf .
 
-FROM eclipse-temurin:17.0.9_9-jdk-jammy as builder-pdf
+FROM eclipse-temurin:21.0.9_10-jdk-jammy AS builder-pdf
 
 RUN apt update
 # Allow gradle-docs plugin to read git details on files.
@@ -62,7 +62,7 @@ COPY --from=builder-pdf /src/build/docs/asciidoc .
 # BUILD STAGE: GENERATE ASCIIDOC FILES
 # -----------------------------------------
 
-FROM eclipse-temurin:17.0.9_9-jdk-alpine as builder-java
+FROM eclipse-temurin:21.0.9_10-jdk-alpine AS builder-java
 
 # Directory where to build the image from.
 ARG BUILD_IMAGES_DIR="{{ config.buildImagesDir }}"
@@ -156,10 +156,10 @@ COPY --from=builder-jekyll /tmp/site .
 # The image produced by this stage hosts the website.
 
 FROM caddy:2.9.1
-MAINTAINER brightSPARK Labs <enquire@brightsparklabs.com>
 ARG BUILD_DATE=UNKNOWN
 ARG VCS_REF=UNKNOWN
-LABEL org.label-schema.name="nswcc-documentation" \
+LABEL maintainer="enquire@brightsparklabs.com" \
+      org.label-schema.name="nswcc-documentation" \
       org.label-schema.description="Image used to host documentation as a static website." \
       org.label-schema.vendor="brightSPARK Labs" \
       org.label-schema.schema-version="1.0.0-rc1" \

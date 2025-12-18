@@ -14,6 +14,7 @@ Applies brightSPARK Labs standardisation to project documentation.
 |===
 |Plugin Version |Gradle Version |Java Version
 
+|6.x.y |9.x.y |21
 |5.x.y |9.x.y |17
 |4.x.y |8.x.y |17
 |3.x.y |8.x.y |17
@@ -30,6 +31,8 @@ Applies brightSPARK Labs standardisation to project documentation.
 # publish
 ./gradlew publishPlugins
 ----
+
+IMPORTANT: Ensure the right Java version is specified in `.github/` files.
 
 == Usage
 
