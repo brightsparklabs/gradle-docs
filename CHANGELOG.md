@@ -12,11 +12,48 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
-* NSWCCCLOUD-4: Add macros for standard date formatting.
-
 ### Fixed
 
 ### Changed
+
+---
+
+## [6.0.0] - 2025-12-18
+
+### Changed
+
+* NSWCC-718: Bump to Java 21
+
+---
+
+## [5.1.0] - 2025-11-20
+
+### Added
+
+* BD-138: Add `format_currency` macro
+* BD-125: Include company name in footer
+
+---
+
+## [5.0.0] - 2025-10-07
+
+### Changed
+
+* RAD-237: Update to Gradle 9
+* RAD-237: Disable `shadowJar` from BSL gradle-baseline which is conflicting with the gradle-publish plugin
+
+---
+
+## [4.2.0] - 2025-09-24
+
+### Added
+
+* NSWCCCLOUD-16: Add support for extended HTML colours in PDF documents
+* NSWCCCLOUD-4: Add macros for standard date formatting
+
+### Changed
+
+* NSWCCCLOUD-16: Make repo commit lighter
 
 ---
 
