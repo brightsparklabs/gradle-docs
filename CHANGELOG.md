@@ -18,6 +18,14 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ---
 
+## [6.1.0] - 2026-03-06
+
+### Added
+
+* ACICGM-41: Include host environment variables in `context` under `env` key.
+
+---
+
 ## [6.0.0] - 2025-12-18
 
 ### Changed

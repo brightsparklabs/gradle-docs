@@ -191,6 +191,7 @@ class DocsPlugin implements Plugin<Project> {
         final Map<String, Object> context = [
             sys   : sysContext,
             config: config,
+            env: System.getenv(),
         ]
 
         return context
