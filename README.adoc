@@ -135,6 +135,7 @@ instance_file:: <<context_key_instance_file, (Dynamic) Current instance file var
 output_file:: <<context_key_output_file, (Dynamic) Current output file variables>>
 config:: <<context_key_config, Plugin configuration variables>>
 buildscript_vars:: <<context_key_buildscript_vars, Buildscript variables>>
+env:: Environment variables of the host
 
 Template files can reference any of the variables in this map via standard Jinja2 syntax.
 
