@@ -13,15 +13,21 @@ import com.hubspot.jinjava.loader.FileLocator
 import groovy.io.FileType
 import groovy.transform.Immutable
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 
+import javax.inject.Inject
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.ZonedDateTime
@@ -32,6 +38,9 @@ import static com.brightsparklabs.gradle.docs.DocsPlugin.jinjava
 /**
  * The Jinja2 pre-processing task which renders all the .j2 template files.
  */
+@DisableCachingByDefault(because =
+"Output is small and computed quickly from project state; the build cache machinery would " +
+"add more overhead than it would save.")
 abstract class Jinja2PreProcessingTask extends DefaultTask {
     // -------------------------------------------------------------------------
     // CONSTANTS
@@ -56,40 +65,8 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     // INSTANCE VARIABLES
     // -------------------------------------------------------------------------
 
-    /*
-     * Using a closure to build the `Yaml` because we need to build up the `LoaderOptions` and
-     * `DumperOptions` first. The closure allows us to run the logic, then execute (with the tailing
-     * `()`) which then sets the value.
-     *
-     * NOTE: Needs to be non-static as we need to use the `project` variable (which is non-static)
-     * to get Gradle properties.
-     */
-    /** Yaml parser. */
-    private final Yaml yaml = { _ ->
-        LoaderOptions loaderOptions = new LoaderOptions();
-        /*
-         * We only want to set the unsafe `setMaxAliasesForCollections` if explicitly requested by
-         * developer using a gradle property.
-         */
-        String maxAliases = project.findProperty(YAML_MAX_ALIASES)
-        if (maxAliases != null) {
-            int max = Integer.parseInt(maxAliases)
-            project.logger.warn(
-                    "Gradle property `${YAML_MAX_ALIASES}` is set to `${max}`. Setting Yaml loader option `setMaxAliasesForCollections`. Be aware of security implications.")
-            loaderOptions.setMaxAliasesForCollections(max);
-        }
-
-        def dumperOptions = new DumperOptions();
-        dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        dumperOptions.setPrettyFlow(true);
-
-        return new Yaml(
-                new org.yaml.snakeyaml.constructor.Constructor(loaderOptions),
-                new org.yaml.snakeyaml.representer.Representer(dumperOptions),
-                dumperOptions,
-                loaderOptions
-                );
-    }()
+    /** Yaml parser. Lazily initialised in {@link #getYaml()} to honour the Gradle property. */
+    private Yaml yaml
 
     /* NOTE:
      *
@@ -112,17 +89,36 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     private Map<File, Map<String, Object>> outputFileToContextMap = [:]
 
     /** Header to add to each Jinja2 file prior to rendering. */
-    private def templateHeader = ""
+    private String templateHeader = ""
 
     /** Footer to add to each Jinja2 file prior to rendering. */
-    private def templateFooter = ""
+    private String templateFooter = ""
 
     // -------------------------------------------------------------------------
-    // GRADLE  - DYNAMIC INPUTS
+    // GRADLE - INJECTED SERVICES
     // -------------------------------------------------------------------------
 
-    /** Directory containing the source templates to render. */
+    /**
+     * @return The injected {@link FileSystemOperations} service used in place of {@code project}
+     *         during task execution (required for configuration cache compatibility).
+     */
+    @Inject
+    abstract FileSystemOperations getFs()
+
+    // -------------------------------------------------------------------------
+    // GRADLE - DYNAMIC INPUTS
+    // -------------------------------------------------------------------------
+
+    /**
+     * Directory containing the source templates to render.
+     *
+     * <p>Marked as {@link org.gradle.api.tasks.Optional} because consumer projects may legitimately
+     * have no documents to process. The task action additionally short-circuits when the
+     * directory does not exist.</p>
+     */
     @InputDirectory
+    @org.gradle.api.tasks.Optional
+    @PathSensitive(PathSensitivity.RELATIVE)
     def templatesDirProperty = project.objects.directoryProperty()
 
     /** Directory containing any buildscript created variables. */
@@ -132,6 +128,49 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     /** Directory to store the rendered templates in. */
     @OutputDirectory
     def jinjaOutputDirProperty = project.objects.directoryProperty()
+
+    /** Absolute path to the project directory. Captured as a {@link Property} so the task does not
+     * need to access {@code project} at execution time. */
+    @Internal
+    final Property<File> projectDirProperty = project.objects.property(File).convention(project.projectDir)
+
+    /** Absolute path to the root project directory. Captured to avoid accessing {@code project}
+     * at execution time. */
+    @Internal
+    final Property<File> rootDirProperty = project.objects.property(File).convention(project.rootDir)
+
+    /** The project name. Captured at configuration time for use during execution. */
+    @Internal
+    final Property<String> projectNameProperty = project.objects.property(String).convention(
+    project.provider { Optional.ofNullable(project.name).map { it.trim() }.orElse("unspecified") })
+
+    /** The project description. Captured at configuration time for use during execution. */
+    @Internal
+    final Property<String> projectDescriptionProperty = project.objects.property(String).convention(
+    project.provider { Optional.ofNullable(project.description).map { it.trim() }.orElse("unspecified") })
+
+    /** The project version. Captured at configuration time for use during execution. */
+    @Internal
+    final Property<String> projectVersionProperty = project.objects.property(String).convention(
+    project.provider {
+        Optional.ofNullable(project.version).map { it.toString().trim() }.orElse("unspecified")
+    })
+
+    /**
+     * Optional value of the {@link #YAML_MAX_ALIASES} gradle property. Captured at configuration
+     * time to avoid accessing {@code project} at execution time.
+     */
+    @Internal
+    final Property<String> yamlMaxAliasesProperty = project.objects.property(String).convention(
+    project.providers.gradleProperty(YAML_MAX_ALIASES))
+
+    /**
+     * Optional value of the {@link #GRADLE_PROPERTY_NAME_INCLUDE} gradle property. Captured at
+     * configuration time to avoid accessing {@code project} at execution time.
+     */
+    @Internal
+    final Property<String> includeFilterProperty = project.objects.property(String).convention(
+    project.providers.gradleProperty(GRADLE_PROPERTY_NAME_INCLUDE))
 
     // -------------------------------------------------------------------------
     // CONSTRUCTION
@@ -159,6 +198,45 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     }
 
     // -------------------------------------------------------------------------
+    // YAML PARSER
+    // -------------------------------------------------------------------------
+
+    /**
+     * Lazily creates and returns the {@link Yaml} parser. Lazy creation is required so that the
+     * {@link #YAML_MAX_ALIASES} Gradle property (captured at configuration time) can be honoured
+     * at execution time without referencing {@code project} (which is not allowed under the
+     * configuration cache).
+     *
+     * @return The configured {@link Yaml} parser instance.
+     */
+    @Internal
+    Yaml getYaml() {
+        if (yaml == null) {
+            LoaderOptions loaderOptions = new LoaderOptions();
+            // Only set the unsafe `setMaxAliasesForCollections` if explicitly requested by the
+            // developer using a gradle property.
+            String maxAliases = yamlMaxAliasesProperty.getOrNull()
+            if (maxAliases != null) {
+                int max = Integer.parseInt(maxAliases)
+                logger.warn(
+                        "Gradle property `${YAML_MAX_ALIASES}` is set to `${max}`. Setting Yaml loader option `setMaxAliasesForCollections`. Be aware of security implications.")
+                loaderOptions.setMaxAliasesForCollections(max);
+            }
+
+            def dumperOptions = new DumperOptions();
+            dumperOptions.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+            dumperOptions.setPrettyFlow(true);
+
+            yaml = new Yaml(
+                    new org.yaml.snakeyaml.constructor.Constructor(loaderOptions),
+                    new org.yaml.snakeyaml.representer.Representer(dumperOptions),
+                    dumperOptions,
+                    loaderOptions)
+        }
+        return yaml
+    }
+
+    // -------------------------------------------------------------------------
     // IMPLEMENTATION: Plugin<Project>
     // -------------------------------------------------------------------------
 
@@ -172,34 +250,43 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
     @TaskAction
     void runTask() {
         final File jinjaOutputDir = jinjaOutputDirProperty.get().asFile
+        final File projectDir = projectDirProperty.get()
+
+        final File docsDirFile = new File(projectDir, config.docsDir)
+        if (!docsDirFile.exists()) {
+            // Nothing to process. Emit a friendly message and return so consumer projects without
+            // any documents can still apply this plugin without failure.
+            logger.lifecycle("Docs source directory `${docsDirFile}` does not exist. Skipping Jinja2 pre-processing.")
+            return
+        }
 
         // Copy the entire directory and render files in-place to make
         // keeping output folder structures intact easier.
-        project.delete jinjaOutputDir
+        fs.delete { it.delete(jinjaOutputDir) }
         jinjaOutputDir.mkdirs()
-        project.copy {
-            from project.file(config.docsDir)
-            into jinjaOutputDir
+        fs.copy {
+            it.from(docsDirFile)
+            it.into(jinjaOutputDir)
         }
 
-        def buildImagesDir = project.file(config.buildImagesDir)
-        project.delete buildImagesDir
+        final File buildImagesDir = new File(projectDir, config.buildImagesDir)
+        fs.delete { it.delete(buildImagesDir) }
         buildImagesDir.mkdirs()
-        project.copy {
-            from project.file(config.sourceImagesDir)
-            into buildImagesDir
+        fs.copy {
+            it.from(new File(projectDir, config.sourceImagesDir))
+            it.into(buildImagesDir)
         }
 
-        final Map<String, Object> context = DocsPlugin.getGlobalContext(project, config, now)
+        final Map<String, Object> context = buildExecutionContext()
 
         // ------------------------------------------------------------
         // ROOT JINJA2 CONTEXT
         // ------------------------------------------------------------
 
-        final globalVariablesFile = project.file(config.variablesFile)
+        final File globalVariablesFile = new File(projectDir, config.variablesFile)
         final VariablesFileData variablesFileData = readVariablesFile(globalVariablesFile)
         context.putAll(variablesFileData.toMap())
-        logger.info("Using `root` context:\n${yaml.dump(context)}")
+        logger.info("Using `root` context:\n${getYaml().dump(context)}")
 
         // All directory variable files which have been loaded.
         // Key is the full path to the dir, value is a map of the variables from the dir.
@@ -222,7 +309,38 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
          */
         filterResultingFiles()
 
-        project.logger.lifecycle("Template files rendered to `${jinjaOutputDir.getAbsolutePath()}`.")
+        logger.lifecycle("Template files rendered to `${jinjaOutputDir.getAbsolutePath()}`.")
+    }
+
+    /**
+     * Builds the global execution context used when rendering templates.
+     *
+     * <p>This is a configuration-cache-safe variant of
+     * {@link DocsPlugin#getGlobalContext(org.gradle.api.Project, DocsPluginExtension, java.time.ZonedDateTime)}
+     * which avoids referencing the {@code project} object at execution time.</p>
+     *
+     * <p>Intentionally not {@code private} — Gradle decorates task classes at runtime, and Groovy's
+     * dynamic method dispatch occasionally fails to locate {@code private} methods declared on the
+     * undecorated parent class.</p>
+     *
+     * @return The global execution context.
+     */
+    Map<String, Object> buildExecutionContext() {
+        final File projectDir = projectDirProperty.get()
+        final Map<String, Object> sysContext = [
+            project_name             : projectNameProperty.get(),
+            project_description      : projectDescriptionProperty.get(),
+            project_version          : projectVersionProperty.get(),
+            project_path             : projectDir.toPath(),
+            build_timestamp          : now,
+            build_timestamp_formatted: DocsPlugin.getFormattedTimestamps(now),
+            repo_last_commit         : getLastCommit(projectRelativePath, now),
+        ]
+        return [
+            sys   : sysContext,
+            config: config,
+            env   : System.getenv(),
+        ]
     }
 
     // --------------------------------------------------------------------------
@@ -255,10 +373,10 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         final String variablesFilePathRelativeToDocsProject = getPathRelativeToDocsProject(variablesFile)
 
         if (variablesFile.exists()) {
-            project.logger.info("Adding variables to Jinja2 from [${variablesFile}]")
+            logger.info("Adding variables to Jinja2 from [${variablesFile}]")
 
             String yamlText = variablesFile.text
-            vars = yaml.load(yamlText)
+            vars = getYaml().load(yamlText)
 
             varsFileLastCommit = getLastCommit(projectRelativePath + variablesFilePathRelativeToDocsProject, now)
         }
@@ -266,10 +384,10 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         final File buildscriptVariablesDir = new File(buildscriptVariablesDirProperty.get())
         final File buildscriptVariablesFile = new File(buildscriptVariablesDir, variablesFilePathRelativeToDocsProject)
         if (buildscriptVariablesFile.exists()) {
-            project.logger.info("Adding buildscript variables to Jinja2 from [${buildscriptVariablesFile}]")
+            logger.info("Adding buildscript variables to Jinja2 from [${buildscriptVariablesFile}]")
 
             String yamlText = buildscriptVariablesFile.text
-            buildscriptVars = yaml.load(yamlText)
+            buildscriptVars = getYaml().load(yamlText)
         }
 
         return new VariablesFileData(vars, varsFileLastCommit, buildscriptVars)
@@ -288,7 +406,11 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      */
     File jinja2OutputDirPathToSrcDirPath(File fileInJinja2OutputDir) {
         final String srcFilePath = jinja2OutputDirPathToSrcDirPathString(fileInJinja2OutputDir)
-        final File srcFile = project.file(srcFilePath)
+        // Resolve the path relative to the project directory (mirrors `project.file(...)` semantics)
+        // without referencing `project`, which is not allowed under the configuration cache.
+        final File srcFile = new File(srcFilePath).isAbsolute()
+                ? new File(srcFilePath)
+                : new File(projectDirProperty.get(), srcFilePath)
         return srcFile
     }
 
@@ -326,8 +448,9 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      * @return
      */
     String getPathRelativeToDocsProject(File file) {
-        // The absolute path to this docs project.
-        final Path pathToDocsProject = Path.of(project.file('.').getAbsolutePath())
+        // The absolute path to this docs project. Use the captured project directory property
+        // (instead of `project.file(...)`) for configuration cache compatibility.
+        final Path pathToDocsProject = projectDirProperty.get().getAbsoluteFile().toPath()
 
         // Calculate the path to the file from this docs project.
         final String relativePath = pathToDocsProject.relativize(file.toPath())
@@ -346,6 +469,9 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      * which reference files in relation to the repo's root directory.
      */
     String getProjectRelativePath() {
+        // Reference `project` directly here because this method is only called from the constructor
+        // (i.e. at task configuration time). The result is captured into a final field so it can be
+        // safely referenced at execution time without needing the `project` instance.
         String projectRelativePath = "";
         if (!(project.projectDir.toString() == project.rootDir.toString())) {
             // This is a subproject in a Gradle multi-project build. Calculate relative path.
@@ -490,7 +616,7 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         // Find the corresponding file from the source directory so we can use git on it.
         final File instanceFileSrc = jinja2OutputDirPathToSrcDirPath(instanceFile)
         final VariablesFileData variablesFileData = readVariablesFile(instanceFileSrc)
-        final String instanceFileSrcRelativePath = project.file(config.docsDir).toPath().relativize(instanceFileSrc.toPath())
+        final String instanceFileSrcRelativePath = new File(projectDirProperty.get(), config.docsDir).toPath().relativize(instanceFileSrc.toPath())
 
         // We want to output the file at the same level as the template file.
         final String instanceOutputFileName = instanceFile.getName().replaceFirst(/\.yaml$/, '')
@@ -689,25 +815,24 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      *         └── conclusion.adoc
      */
     def filterResultingFiles() {
-        def filter = project.providers.gradleProperty(GRADLE_PROPERTY_NAME_INCLUDE)
-        if (! filter.present) {
+        if (!includeFilterProperty.isPresent()) {
             // No filtering to be done, can return.
             return
         }
 
-        def filtersRaw = filter.get()
-        project.logger.lifecycle("Applying post filtering to rendered Jinja2 files: {}", filtersRaw)
+        final String filtersRaw = includeFilterProperty.get()
+        logger.lifecycle("Applying post filtering to rendered Jinja2 files: {}", filtersRaw)
 
         final File jinjaOutputDir = jinjaOutputDirProperty.get().asFile
-        def filters = filter.get().split('\\s*,\\s*')
+        final String[] filters = filtersRaw.split('\\s*,\\s*')
 
         jinjaOutputDir.traverse(type: FileType.FILES) { templateFile ->
             def correspondingSrcFile = jinja2OutputDirPathToSrcDirPathString(templateFile)
 
-            if (!filters.any { correspondingSrcFile.startsWith(it)}) {
+            if (!filters.any { correspondingSrcFile.startsWith(it) }) {
                 // None of the filters includes this file, delete it.
-                project.logger.debug("Filtering out src file: `{}` -> `{}`", correspondingSrcFile, templateFile)
-                project.delete(templateFile)
+                logger.debug("Filtering out src file: `{}` -> `{}`", correspondingSrcFile, templateFile)
+                fs.delete { it.delete(templateFile) }
             }
         }
     }

@@ -12,14 +12,15 @@ Applies brightSPARK Labs standardisation to project documentation.
 == Compatibility
 
 |===
-|Plugin Version |Gradle Version |Java Version
+| Plugin Version | Gradle Version | Java Version
 
-|6.x.y |9.x.y |21
-|5.x.y |9.x.y |17
-|4.x.y |8.x.y |17
-|3.x.y |8.x.y |17
-|2.x.y |7.x.y |17
-|1.x.y |6.x.y |11
+| 7.x.y | > 9.1.y | 25
+| 6.x.y | 9.4.y | 21
+| 5.x.y | 9.x.y | 17
+| 4.x.y | 8.x.y | 17
+| 3.x.y | 8.x.y | 17
+| 2.x.y | 7.x.y | 17
+| 1.x.y | 6.x.y | 11
 |===
 
 == Build
@@ -975,6 +976,17 @@ docsPluginConfig {
     // Classification to add to the document header/footer.
     // Default: `OFFICIAL`.
     classification = ''
+
+    // Set to `true` to allow Asciidoctor to read content from URIs (e.g. `include::https://...[]`,
+    // remote images, etc.) when rendering documents.
+    // Enabling this:
+    //   - Sets the Asciidoctor `allow-uri-read` attribute, AND
+    //   - Lowers the Asciidoctor safe mode to `SAFE` (the `allow-uri-read` attribute is ignored
+    //     in the default `SECURE` safe mode).
+    // SECURITY: Only enable this for trusted source documents. A malicious document could
+    // otherwise exfiltrate data or fetch unexpected content during the build.
+    // Default: `false`.
+    allowUriRead = true
 
     // Theme to apply to PDF. Defaults to the brightSPARK Labs theme.
     // Default: brightSPARK Labs in-built theme.
