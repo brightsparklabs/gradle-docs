@@ -11,10 +11,13 @@ import com.google.common.base.Charsets
 import com.google.common.io.Resources
 import com.hubspot.jinjava.Jinjava
 import com.hubspot.jinjava.JinjavaConfig
+import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.UnknownTaskException
+import org.gradle.process.ExecOperations
 
+import javax.inject.Inject
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -132,15 +135,19 @@ class DocsPlugin implements Plugin<Project> {
      * @param buildscriptVariablesDir Directory containing any buildscript created variables.
      */
     private static void setupJinjaPreProcessingTasks(Project project, File jinjaOutputDir, File buildscriptVariablesDir) {
+        // Capture values outside of the task action to avoid capturing `project` inside it (required
+        // for configuration cache compatibility).
+        final File asciidoctorOutputDir = project.file("build/docs")
+        final def injected = project.objects.newInstance(Injected)
+
         project.tasks.register('cleanJinjaPreProcess') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jinja2 processed documents out of the build directory."
 
             doLast {
-                project.delete jinjaOutputDir
-                // Delete asciidoctor generated documents else renamed/deleted docs  may remain.
-                def asciidoctorOutputDir = project.file("build/docs")
-                project.delete asciidoctorOutputDir
+                injected.fs.delete { it.delete(jinjaOutputDir) }
+                // Delete asciidoctor generated documents else renamed/deleted docs may remain.
+                injected.fs.delete { it.delete(asciidoctorOutputDir) }
             }
         }
         // Use `afterEvaluate` in case another task add the `clean` task.
@@ -161,7 +168,13 @@ class DocsPlugin implements Plugin<Project> {
             group = "brightSPARK Labs - Docs"
             description = "Performs Jinja2 pre-processing on documents. Filter paths with `-P${Jinja2PreProcessingTask.GRADLE_PROPERTY_NAME_INCLUDE}=src/dir1,src/dir2/dir3`."
 
-            templatesDirProperty.set(new File(config.docsDir))
+            // Only wire up the templates directory if it exists. Marking the property as
+            // `@Optional` is not enough because Gradle still validates that the value (when set)
+            // points to an existing directory.
+            final File templatesDir = project.file(config.docsDir)
+            if (templatesDir.exists()) {
+                templatesDirProperty.set(templatesDir)
+            }
             buildscriptVariablesDirProperty.set(buildscriptVariablesDir.getAbsolutePath())
             jinjaOutputDirProperty.set(jinjaOutputDir)
         }
@@ -185,7 +198,7 @@ class DocsPlugin implements Plugin<Project> {
             project_path             : project.projectDir.toPath(),
             build_timestamp          : now,
             build_timestamp_formatted: getFormattedTimestamps(now),
-            repo_last_commit         : getLastCommit('.', now),
+            repo_last_commit         : getLastCommit(project, '.', now),
         ]
 
         final Map<String, Object> context = [
@@ -210,7 +223,7 @@ class DocsPlugin implements Plugin<Project> {
      *         ]
      *         </pre>
      */
-    private static Map<String, Object> getLastCommit(String relativeFilePath, ZonedDateTime defaultTimestamp) {
+    private static Map<String, Object> getLastCommit(Project project, String relativeFilePath, ZonedDateTime defaultTimestamp) {
         final Map<String, Object> result = [
             hash               : 'unspecified',
             timestamp          : defaultTimestamp,
@@ -220,7 +233,7 @@ class DocsPlugin implements Plugin<Project> {
         // If file is dirty, then use current time.
         def checkFileDirtyCommand = 'git diff --shortstat --'.tokenize()
         checkFileDirtyCommand << relativeFilePath
-        String checkFileDirty = checkFileDirtyCommand.execute().text.trim()
+        String checkFileDirty = executeShellCommand(project, checkFileDirtyCommand)
         if (!checkFileDirty.isEmpty()) {
             return result
         }
@@ -228,7 +241,7 @@ class DocsPlugin implements Plugin<Project> {
         // NOTE: Use array execution instead of string execution in case parameters contain spaces
         def lastCommitHashCommand = 'git log -n 1 --pretty=format:%h --'.tokenize()
         lastCommitHashCommand << relativeFilePath
-        String lastCommitHash = lastCommitHashCommand.execute().text.trim()
+        String lastCommitHash = executeShellCommand(project, lastCommitHashCommand)
         if (!lastCommitHash.isEmpty()) {
             result.put("hash", lastCommitHash)
         }
@@ -236,7 +249,7 @@ class DocsPlugin implements Plugin<Project> {
         // NOTE: Use array execution instead of string execution in case parameters contain spaces
         def lastCommitTimestampCommand = 'git log -n 1 --pretty=format:%aI --'.tokenize()
         lastCommitTimestampCommand << relativeFilePath
-        String lastCommitTimestamp = lastCommitTimestampCommand.execute().text.trim()
+        String lastCommitTimestamp = executeShellCommand(project, lastCommitTimestampCommand)
         if (!lastCommitTimestamp.isEmpty()) {
             def zonedTimestamp = ZonedDateTime.parse(lastCommitTimestamp)
             result.put("timestamp", zonedTimestamp)
@@ -289,26 +302,39 @@ class DocsPlugin implements Plugin<Project> {
             description = "Alias for `asciidoctorPdf` task."
         }
 
+        // Capture values outside of the task action to avoid capturing `project` inside it
+        // (required for configuration cache compatibility).
+        final def versionedInjected = project.objects.newInstance(Injected)
+        final File pdfOutputDir = project.file("${project.layout.buildDirectory.get().asFile}/docs/asciidoc/pdf")
+        final File timestampedPdfOutputDir = project.file("${project.layout.buildDirectory.get().asFile}/docs/asciidoc/pdfTimestamped")
+        final File versionedPdfOutputDir = project.file("${project.layout.buildDirectory.get().asFile}/docs/asciidoc/pdfVersioned")
+        // Lazily resolve the Jinja2 pre-processing task's output context map without capturing
+        // either the task or the `project` reference (required for configuration cache compat).
+        final def outputFileContextMapProvider = project.tasks
+                .named('jinjaPreProcess', Jinja2PreProcessingTask)
+                .map { it.getOutputFileToContextMap() }
+
         project.tasks.register('bslAsciidoctorPdfVersioned') {
             group = "brightSPARK Labs - Docs"
             description = "Creates PDF files with version string in filename."
 
+            // Disable the configuration cache for this task because it depends on the in-memory
+            // state of the `jinjaPreProcess` task which the configuration cache cannot serialise.
+            notCompatibleWithConfigurationCache(
+                    "This task consumes in-memory state from the `jinjaPreProcess` task.")
+
             doLast {
-                final def pdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdf")
-                final def timestampedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfTimestamped")
-                project.copy {
+                versionedInjected.fs.copy {
                     from pdfOutputDir
                     into timestampedPdfOutputDir
                 }
-                final def versionedPdfOutputDir = project.file("${project.buildDir}/docs/asciidoc/pdfVersioned")
-                project.copy {
+                versionedInjected.fs.copy {
                     from pdfOutputDir
                     into versionedPdfOutputDir
                 }
 
                 // Use the context variables for each output file to determine timestamps.
-                def jinjaPreProcessTask = (Jinja2PreProcessingTask) project.tasks.named('jinjaPreProcess').get()
-                def outputFileToContextMap = jinjaPreProcessTask.getOutputFileToContextMap()
+                def outputFileToContextMap = outputFileContextMapProvider.get()
 
                 outputFileToContextMap.each { adocFile, context ->
                     // Find the PDF file which got generated from the asciidoc file.
@@ -321,7 +347,7 @@ class DocsPlugin implements Plugin<Project> {
                         // The asciidoc file did not result in a PDF file. This happens when the
                         // asciidoc files are in asciidoc hidden folder (i.e. folders prefixed with
                         // an underscore). These files can be ignored.
-                        project.logger.info('Ignoring asciidoc file which has no PDF equivalent: {}', adocFile.getAbsolutePath())
+                        logger.info('Ignoring asciidoc file which has no PDF equivalent: {}', adocFile.getAbsolutePath())
                         return
                     }
 
@@ -347,30 +373,58 @@ class DocsPlugin implements Plugin<Project> {
             }
         }
 
+        // Capture values outside of the task action to avoid capturing `project` inside it
+        // (required for configuration cache compatibility).
+        final def extractResourcesInjected = project.objects.newInstance(Injected)
+        final def resourceToOutput = [
+            "/themes/brightspark-labs-theme.yml": [
+                Paths.get("${themesDir}/brightspark-labs-theme.yml")
+            ],
+            "/cover-page-logo.svg": [
+                Paths.get("${themesDir}/cover-page-logo.svg"),
+                // Also copy logo to images directory so it can be used in Asciidoc files directly.
+                Paths.get("${project.projectDir}/${config.buildImagesDir}/cover-page-logo.svg"),
+            ],
+        ]
+
         project.tasks.register('bslGradleDocsExtractResources') {
             group = "brightSPARK Labs - Docs"
             description = "Extracts resources from the Gradle Docs plugin JAR to the filesystem."
 
-            def resourceToOutput = [
-                "/themes/brightspark-labs-theme.yml": [
-                    Paths.get("${themesDir}/brightspark-labs-theme.yml")
-                ],
-                "/cover-page-logo.svg": [
-                    Paths.get("${themesDir}/cover-page-logo.svg"),
-                    // Also copy logo to images directory so it can be used in Asciidoc files directly.
-                    Paths.get("${project.projectDir}/${config.buildImagesDir}/cover-page-logo.svg"),
-                ],
-            ]
-
-            outputs.files(resourceToOutput.values())
+            outputs.files(resourceToOutput.values().flatten())
 
             doLast {
                 resourceToOutput.each { resource, outputFiles ->
                     outputFiles.each { outputFile ->
-                        extractResourceToFilesystem(project, resource,
-                                outputFile)
+                        // Ensure parent directory exists.
+                        outputFile.parent.toFile().mkdirs()
+                        // Stream the resource directly from the plugin JAR to the destination
+                        // file. We avoid using `Project.copy` / `FileSystemOperations.copy` here
+                        // because Gradle 9's `from(...)` no longer accepts an `InputStream`.
+                        DocsPlugin.class.getResourceAsStream(resource).withCloseable { input ->
+                            outputFile.toFile().withOutputStream { output ->
+                                output << input
+                            }
+                        }
                     }
                 }
+            }
+        }
+
+        // The Asciidoctor Gradle JVM plugin (version 4.x) is not yet compatible with the Gradle
+        // configuration cache. The `asciidoctor` and `asciidoctorPdf` tasks store references to
+        // `Project`, `TaskContainer`, and dependency `Configuration` objects internally, none of
+        // which can be serialised. Disable the configuration cache for any task contributed by
+        // these plugins until the upstream plugin is fixed
+        // (see https://github.com/asciidoctor/asciidoctor-gradle-plugin/issues/689).
+        final String configCacheReason =
+                "Asciidoctor Gradle JVM plugin 4.x is not yet compatible with the configuration cache."
+        project.tasks.configureEach { task ->
+            // Match by class name (rather than `withType(...)`) so we don't fail at plugin
+            // application time if the Asciidoctor classes are not yet loaded on the classpath.
+            final String taskClassName = task.getClass().getName()
+            if (taskClassName.startsWith('org.asciidoctor.gradle.')) {
+                task.notCompatibleWithConfigurationCache(configCacheReason)
             }
         }
 
@@ -508,6 +562,10 @@ class DocsPlugin implements Plugin<Project> {
      * @param outputDir Directory to store the generated Dockerfile to.
      */
     private void setupDockerFileTask(Project project, DocsPluginExtension config, Map<String, Object> global_context, File outputDir) {
+        // Capture values outside of the task action to avoid capturing `project` inside it
+        // (required for configuration cache compatibility).
+        final def dockerfileInjected = project.objects.newInstance(Injected)
+
         project.tasks.register(GENERATE_DOCKERFILE_TASK_NAME) {
             group = "brightSPARK Labs - Docs"
             description = "Generates a Dockerfile for hosting the documentation as a static website."
@@ -516,12 +574,12 @@ class DocsPlugin implements Plugin<Project> {
             outputs.file(dockerfile)
 
             doLast {
-                project.delete outputDir
+                dockerfileInjected.fs.delete { it.delete(outputDir) }
                 outputDir.mkdirs()
 
                 // Render the jekyll configuration files.
                 ["_config.yml", "Gemfile"].collect { filename ->
-                    def templateUrl = getClass().getResource("/website/${filename}.j2")
+                    def templateUrl = DocsPlugin.class.getResource("/website/${filename}.j2")
                     def templateText = Resources.toString(templateUrl, Charsets.UTF_8)
                     def fileContent = jinjava.render(templateText, global_context)
 
@@ -530,13 +588,13 @@ class DocsPlugin implements Plugin<Project> {
                 }
 
                 // Read in the Dockerfile contents and then manually perform string extrapolation.
-                def rawDockerFileContent = Resources.toString(getClass().getResource("/Dockerfile.j2"), Charsets.UTF_8)
+                def rawDockerFileContent = Resources.toString(DocsPlugin.class.getResource("/Dockerfile.j2"), Charsets.UTF_8)
                 def dockerFileContent = jinjava.render(rawDockerFileContent, [config: config])
 
                 def dockerFile = new File(outputDir, "Dockerfile")
                 dockerFile.text = dockerFileContent
 
-                project.logger.lifecycle("Dockerfile generated at `${dockerfile.getAbsolutePath()}`.")
+                logger.lifecycle("Dockerfile generated at `${dockerfile.getAbsolutePath()}`.")
             }
         }
 
@@ -550,12 +608,12 @@ class DocsPlugin implements Plugin<Project> {
      * @return `docker` or `podman` iff one of them has `buildx` support. Empty otherwise.
      */
     private Optional<String> getDockerExecutableName(Project project) {
-        if (checkCommandAvailable("docker buildx --help")) {
+        if (checkCommandAvailable(project, "docker buildx --help")) {
             project.logger.lifecycle("`docker buildx` available.")
             return Optional.of("docker")
         }
 
-        if (checkCommandAvailable("podman buildx --help")) {
+        if (checkCommandAvailable(project, "podman buildx --help")) {
             project.logger.lifecycle("`podman buildx` available.")
             return Optional.of("podman")
         }
@@ -574,11 +632,17 @@ class DocsPlugin implements Plugin<Project> {
      * @param dockerOrPodman The command (docker or podman) to run for building the container.
      */
     private void setupBuildInDocker(Project project, DocsPluginExtension config, File outputDir, String dockerOrPodman) {
+        // Capture values outside of the task action to avoid capturing `project` inside it
+        // (required for configuration cache compatibility).
+        final def buildInDockerInjected = project.objects.newInstance(Injected)
+        final File projectDir = project.projectDir
+        final def dockerfileTaskOutputs = project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).flatMap { it.outputs.files.elements }
+
         project.tasks.register('bslAsciidoctorPdfInDocker') {
             group = "brightSPARK Labs - Docs"
             description = "Runs the Asciidoctor PDF tasks within a Docker container. Useful as the CLI diagramming CLI tools do not need to be installed on the local machine."
             dependsOn(GENERATE_DOCKERFILE_TASK_NAME)
-            inputs.files(project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).get().outputs.files)
+            inputs.files(dockerfileTaskOutputs)
             outputs.dir(outputDir)
 
             doLast {
@@ -601,11 +665,12 @@ class DocsPlugin implements Plugin<Project> {
                     // Write the files from that stage to the output directory.
                     "--output",
                     outputDir,
-                    project.projectDir
+                    projectDir
                 ]
-                // Use `project.exec` (rather than "command".execute() as it live prints stderr/stdout.
-                project.exec {
-                    commandLine command
+                // Use injected `ExecOperations` (rather than `project.exec`) for configuration cache
+                // compatibility. It still live prints stderr/stdout.
+                buildInDockerInjected.exec.exec {
+                    it.commandLine(command)
                 }
                 logger.lifecycle("PDF files exported to: `${outputDir}`")
             }
@@ -624,12 +689,18 @@ class DocsPlugin implements Plugin<Project> {
     private void setupWebsiteTasks(Project project, DocsPluginExtension config, File outputDir, String dockerOrPodman) {
         project.logger.lifecycle("Adding website generation tasks.")
 
+        // Capture values outside of the task action to avoid capturing `project` inside it
+        // (required for configuration cache compatibility).
+        final def websiteInjected = project.objects.newInstance(Injected)
+        final File projectDir = project.projectDir
+        final def dockerfileTaskOutputs = project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).flatMap { it.outputs.files.elements }
+
         project.tasks.register('cleanJekyllWebsite') {
             group = "brightSPARK Labs - Docs"
             description = "Cleans the Jekyll website out of the build directory."
 
             doLast {
-                project.delete outputDir
+                websiteInjected.fs.delete { it.delete(outputDir) }
             }
         }
 
@@ -652,7 +723,7 @@ class DocsPlugin implements Plugin<Project> {
             group = "brightSPARK Labs - Docs"
             description = "Generates a Jekyll based website from the documents using docker."
             dependsOn(GENERATE_DOCKERFILE_TASK_NAME)
-            inputs.files(project.tasks.named(GENERATE_DOCKERFILE_TASK_NAME).get().outputs.files)
+            inputs.files(dockerfileTaskOutputs)
             outputs.dir(outputDir)
 
             doLast {
@@ -675,11 +746,12 @@ class DocsPlugin implements Plugin<Project> {
                     // Write the files from that stage to the output directory.
                     "--output",
                     outputDir,
-                    project.projectDir
+                    projectDir
                 ]
-                // Use `project.exec` (rather than "command".execute() as it live prints stderr/stdout.
-                project.exec {
-                    commandLine command
+                // Use injected `ExecOperations` (rather than `project.exec`) for configuration cache
+                // compatibility. It still live prints stderr/stdout.
+                websiteInjected.exec.exec {
+                    it.commandLine(command)
                 }
                 logger.lifecycle("Jekyll based static website created in: `${outputDir}`")
             }
@@ -691,18 +763,44 @@ class DocsPlugin implements Plugin<Project> {
      * @param command Command to test.
      * @return `true` if running the command returns exit code 0. `false` otherwise.
      */
-    private static boolean checkCommandAvailable(String command) {
-        try {
-            def process = command.execute()
-            process.waitFor()
-            if (process.exitValue() == 0) {
-                return true
+    private static boolean checkCommandAvailable(Project project, String command) {
+        def isCommandAvailable = project.providers.of(CommandAvailableValueSource) {
+            it.parameters { params ->
+                params.command.set(command)
             }
-        } catch (Exception ignored) {
-            // If command not available it will generally throw an exception.
-            // Do nothing as we return false by default.
-        }
+        }.get()
+        return isCommandAvailable
+    }
 
-        return false
+    /**
+     * Executes a shell command and returns the output.
+     * @param command Command to execute.
+     * @return Output from stdout.
+     */
+    private static String executeShellCommand(Project project, List<String> command) {
+        def result = project.providers.exec {
+            commandLine(command)
+        }.standardOutput.asText.get()
+        return result
+    }
+
+    /**
+     * Service interface used to inject Gradle services into task actions.
+     *
+     * <p>Using injected services (instead of referencing {@code project} directly inside task
+     * actions) is required for compatibility with the Gradle configuration cache.</p>
+     */
+    interface Injected {
+        /**
+         * @return The injected {@link FileSystemOperations} service.
+         */
+        @Inject
+        FileSystemOperations getFs()
+
+        /**
+         * @return The injected {@link ExecOperations} service.
+         */
+        @Inject
+        ExecOperations getExec()
     }
 }

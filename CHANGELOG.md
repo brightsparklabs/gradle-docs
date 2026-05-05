@@ -14,6 +14,25 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Fixed
 
+* QGRC-6: Restored compatibility with Gradle 9 by:
+    * Refactoring all custom tasks (`cleanJinjaPreProcess`, `bslGradleDocsExtractResources`,
+      `bslAsciidoctorPdfVersioned`, `generateDockerfile`, `bslAsciidoctorPdfInDocker`,
+      `cleanJekyllWebsite`, `generateJekyllWebsite`) to use injected `FileSystemOperations` and
+      `ExecOperations` services instead of referencing `project` (and friends) at execution time.
+    * Refactoring `Jinja2PreProcessingTask` to capture project state via lazy `Property` instances
+      at configuration time (project name/description/version/dirs and Gradle properties),
+      removing all references to `project` from the task action.
+    * Marking `bslAsciidoctorPdfVersioned` and all Asciidoctor JVM plugin tasks (`asciidoctor`,
+      `asciidoctorPdf`, etc.) as `notCompatibleWithConfigurationCache(...)`.
+      The Asciidoctor Gradle JVM plugin (4.x) is not yet compatible with the Gradle configuration
+      cache.
+    * Replacing the deprecated `project.buildDir` with `project.layout.buildDirectory`.
+    * Streaming JAR resources directly to the destination file in `bslGradleDocsExtractResources`
+      instead of using `Project.copy { from <InputStream> }` (no longer supported in Gradle 9).
+    * Marking `Jinja2PreProcessingTask.templatesDirProperty` as `@Optional` and skipping the task
+      when the docs source directory does not exist, so the plugin can be applied to projects
+      that do not (yet) contain documents.
+
 ### Changed
 
 ---

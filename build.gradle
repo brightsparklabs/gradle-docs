@@ -22,7 +22,7 @@ plugins {
     id "java"
 
     // Apply the brightSPARK Labs plugin for standardisation.
-    id "com.brightsparklabs.gradle.baseline" version "6.0.0"
+    id "com.brightsparklabs.gradle.baseline" version "7.0.0"
 }
 
 // -----------------------------------------------------------------------------
@@ -101,14 +101,4 @@ task functionalTest(type: Test) {
 check {
     // Run the functional tests as part of `check`
     dependsOn(tasks.functionalTest)
-}
-
-// -----------------------------------------------------------------------------
-// Shadow Plugin (from "com.brightsparklabs.gradle.baseline")
-// -----------------------------------------------------------------------------
-
-bslBaseline {
-    // The `com.gradle.plugin-publish` adds/configures `shadowJar`.
-    // Disable the BSL baseline one to avoid conflicts.
-    enablePlugins.shadowJar = false
 }
