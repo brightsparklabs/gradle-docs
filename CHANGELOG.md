@@ -32,6 +32,11 @@ The changelog is applicable from version `2.7.0` onwards.
     * Marking `Jinja2PreProcessingTask.templatesDirProperty` as `@Optional` and skipping the task
       when the docs source directory does not exist, so the plugin can be applied to projects
       that do not (yet) contain documents.
+    * Annotating `Jinja2PreProcessingTask` with `@DisableCachingByDefault` and
+      `templatesDirProperty` with `@PathSensitive(PathSensitivity.RELATIVE)` so the task passes
+      Gradle 9.5's stricter input validation.
+    * Bumping the Gradle wrapper to `9.5.0` (required because the `com.brightsparklabs.gradle.baseline:7.0.0`
+      plugin is built with Java 25 bytecode, which Gradle 9.0.0 cannot read).
 
 ### Changed
 

@@ -19,7 +19,10 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
@@ -35,6 +38,9 @@ import static com.brightsparklabs.gradle.docs.DocsPlugin.jinjava
 /**
  * The Jinja2 pre-processing task which renders all the .j2 template files.
  */
+@DisableCachingByDefault(because =
+"Output is small and computed quickly from project state; the build cache machinery would " +
+"add more overhead than it would save.")
 abstract class Jinja2PreProcessingTask extends DefaultTask {
     // -------------------------------------------------------------------------
     // CONSTANTS
@@ -112,6 +118,7 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
      */
     @InputDirectory
     @org.gradle.api.tasks.Optional
+    @PathSensitive(PathSensitivity.RELATIVE)
     def templatesDirProperty = project.objects.directoryProperty()
 
     /** Directory containing any buildscript created variables. */
