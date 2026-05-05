@@ -12,6 +12,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
+* BD-131: Added a new `allowUriRead` configuration option (default: `false`).
+
 ### Fixed
 
 * QGRC-6: Restored compatibility with Gradle 9 by:

@@ -977,6 +977,17 @@ docsPluginConfig {
     // Default: `OFFICIAL`.
     classification = ''
 
+    // Set to `true` to allow Asciidoctor to read content from URIs (e.g. `include::https://...[]`,
+    // remote images, etc.) when rendering documents.
+    // Enabling this:
+    //   - Sets the Asciidoctor `allow-uri-read` attribute, AND
+    //   - Lowers the Asciidoctor safe mode to `SAFE` (the `allow-uri-read` attribute is ignored
+    //     in the default `SECURE` safe mode).
+    // SECURITY: Only enable this for trusted source documents. A malicious document could
+    // otherwise exfiltrate data or fetch unexpected content during the build.
+    // Default: `false`.
+    allowUriRead = true
+
     // Theme to apply to PDF. Defaults to the brightSPARK Labs theme.
     // Default: brightSPARK Labs in-built theme.
     //

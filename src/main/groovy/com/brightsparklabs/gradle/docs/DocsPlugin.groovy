@@ -505,10 +505,27 @@ class DocsPlugin implements Plugin<Project> {
                         pluginAttributes['pdf-themesdir@'] = themesDir
                     }
 
+                    // If `allowUriRead` is enabled, set the corresponding Asciidoctor attribute.
+                    // The user can still override this in `config.attributes` if desired.
+                    if (config.allowUriRead) {
+                        pluginAttributes['allow-uri-read@'] = ''
+                    }
+
                     pluginAttributes.putAll(config.attributes)
                     // Allows for the removal of any attributes for which the user defines a value of null
                     pluginAttributes.values().removeIf { a -> !Objects.nonNull(a) }
                     attributes = pluginAttributes
+                }
+
+                // The Asciidoctor `allow-uri-read` attribute is only honoured when the safe mode
+                // is `SAFE` or lower. The default safe mode is `SECURE`, which silently ignores
+                // the attribute. Lower the safe mode here only when the user has explicitly opted
+                // in via `config.allowUriRead`.
+                if (config.allowUriRead) {
+                    project.logger.lifecycle(
+                            "Asciidoctor `allow-uri-read` is enabled. Lowering safe mode to `SAFE`. " +
+                            "Only build trusted documents with this option enabled.")
+                    safeMode = org.asciidoctor.SafeMode.SAFE
                 }
             }
 
