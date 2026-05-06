@@ -12,7 +12,7 @@
 plugins {
     // Apply the Java Gradle plugin development plugin to add support for developing Gradle plugins.
     id "java-gradle-plugin"
-    id "com.gradle.plugin-publish" version "2.0.0"
+    id "com.gradle.plugin-publish" version "2.1.1"
     id "maven-publish"
 
     // Apply the Groovy plugin to add support for Groovy.
@@ -22,7 +22,7 @@ plugins {
     id "java"
 
     // Apply the brightSPARK Labs plugin for standardisation.
-    id "com.brightsparklabs.gradle.baseline" version "6.0.0"
+    id "com.brightsparklabs.gradle.baseline" version "7.0.0"
 }
 
 // -----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ repositories {
 
 dependencies {
     implementation(
-            'com.hubspot.jinjava:jinjava:2.8.1',
+            'com.hubspot.jinjava:jinjava:2.8.3',
             // JRuby (used by Asciidoctor) does not support snakeyaml version 2 yet.
             //   org.jruby.exceptions.LoadError: (LoadError) bad SnakeYAML version 2.2, required 1.21 or higher;
             'org.yaml:snakeyaml:1.33',
@@ -101,14 +101,4 @@ task functionalTest(type: Test) {
 check {
     // Run the functional tests as part of `check`
     dependsOn(tasks.functionalTest)
-}
-
-// -----------------------------------------------------------------------------
-// Shadow Plugin (from "com.brightsparklabs.gradle.baseline")
-// -----------------------------------------------------------------------------
-
-bslBaseline {
-    // The `com.gradle.plugin-publish` adds/configures `shadowJar`.
-    // Disable the BSL baseline one to avoid conflicts.
-    enablePlugins.shadowJar = false
 }

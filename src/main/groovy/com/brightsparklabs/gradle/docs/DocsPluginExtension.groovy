@@ -50,6 +50,23 @@ class DocsPluginExtension {
     String classification = 'OFFICIAL'
 
     /**
+     * Set to `true` to allow Asciidoctor to read content from URIs (e.g. {@code include::https://...[]},
+     * remote images, etc.) when rendering documents. Enabling this:
+     *
+     * <ul>
+     *   <li>Sets the Asciidoctor {@code allow-uri-read} attribute, and</li>
+     *   <li>Lowers the Asciidoctor safe mode to {@code SAFE} (the {@code allow-uri-read}
+     *       attribute is ignored in the default {@code SECURE} safe mode).</li>
+     * </ul>
+     *
+     * <p><b>Security note:</b> Only enable this for trusted source documents. A malicious
+     * document could otherwise exfiltrate data or fetch unexpected content during the build.
+     *
+     * <p>Default: `false`.
+     */
+    boolean allowUriRead = false
+
+    /**
      * Theme to apply to PDF. Defaults to the brightSPARK Labs theme.
      *
      * To use a custom theme, ensure you have first configured the `pdfThemes` extension object

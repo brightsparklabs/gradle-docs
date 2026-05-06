@@ -16,6 +16,44 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.0.0...HEAD)
+
+---
+
+## [7.0.0] - 2026-05-06
+
+### Added
+
+* BD-131: Added a new `allowUriRead` configuration option (default: `false`).
+
+### Fixed
+
+* QGRC-6: Restored compatibility with Gradle 9 by:
+    * Refactoring all custom tasks (`cleanJinjaPreProcess`, `bslGradleDocsExtractResources`,
+      `bslAsciidoctorPdfVersioned`, `generateDockerfile`, `bslAsciidoctorPdfInDocker`,
+      `cleanJekyllWebsite`, `generateJekyllWebsite`) to use injected `FileSystemOperations` and
+      `ExecOperations` services instead of referencing `project` (and friends) at execution time.
+    * Refactoring `Jinja2PreProcessingTask` to capture project state via lazy `Property` instances
+      at configuration time (project name/description/version/dirs and Gradle properties),
+      removing all references to `project` from the task action.
+    * Marking `bslAsciidoctorPdfVersioned` and all Asciidoctor JVM plugin tasks (`asciidoctor`,
+      `asciidoctorPdf`, etc.) as `notCompatibleWithConfigurationCache(...)`.
+      The Asciidoctor Gradle JVM plugin (4.x) is not yet compatible with the Gradle configuration
+      cache.
+    * Replacing the deprecated `project.buildDir` with `project.layout.buildDirectory`.
+    * Streaming JAR resources directly to the destination file in `bslGradleDocsExtractResources`
+      instead of using `Project.copy { from <InputStream> }` (no longer supported in Gradle 9).
+    * Marking `Jinja2PreProcessingTask.templatesDirProperty` as `@Optional` and skipping the task
+      when the docs source directory does not exist, so the plugin can be applied to projects
+      that do not (yet) contain documents.
+    * Annotating `Jinja2PreProcessingTask` with `@DisableCachingByDefault` and
+      `templatesDirProperty` with `@PathSensitive(PathSensitivity.RELATIVE)` so the task passes
+      Gradle 9.5's stricter input validation.
+    * Bumping the Gradle wrapper to `9.5.0` (required because the `com.brightsparklabs.gradle.baseline:7.0.0`
+      plugin is built with Java 25 bytecode, which Gradle 9.0.0 cannot read).
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/6.1.0...7.0.0)
+
 ---
 
 ## [6.1.0] - 2026-03-06
@@ -24,6 +62,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * ACICGM-41: Include host environment variables in `context` under `env` key.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/6.0.0...6.1.0)
+
 ---
 
 ## [6.0.0] - 2025-12-18
@@ -31,6 +71,8 @@ The changelog is applicable from version `2.7.0` onwards.
 ### Changed
 
 * NSWCC-718: Bump to Java 21
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/5.1.0...6.0.0)
 
 ---
 
@@ -41,6 +83,8 @@ The changelog is applicable from version `2.7.0` onwards.
 * BD-138: Add `format_currency` macro
 * BD-125: Include company name in footer
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/5.0.0...5.1.0)
+
 ---
 
 ## [5.0.0] - 2025-10-07
@@ -49,6 +93,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * RAD-237: Update to Gradle 9
 * RAD-237: Disable `shadowJar` from BSL gradle-baseline which is conflicting with the gradle-publish plugin
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/4.2.0...5.0.0)
 
 ---
 
@@ -62,6 +108,8 @@ The changelog is applicable from version `2.7.0` onwards.
 ### Changed
 
 * NSWCCCLOUD-16: Make repo commit lighter
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/4.1.0...4.2.0)
 
 ---
 
@@ -80,6 +128,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * BD-135: Use table header color which works for link-color.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/4.0.0...4.1.0)
+
 ---
 
 ## [4.0.0] - 2025-05-15
@@ -92,6 +142,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * TERA-1868: Enable `asciidoctorj-diagram` by default.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.5.0...4.0.0)
+
 ---
 
 ## [3.5.0] - 2025-05-01
@@ -99,6 +151,8 @@ The changelog is applicable from version `2.7.0` onwards.
 ### Added
 
 * RAD-222: Add `bslDocsInclude` gradle property for filtering document generation.
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.4.2...3.5.0)
 
 ---
 
@@ -108,11 +162,18 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * ACICGM-12: Allow overriding max aliases in a YAML file.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.4.1...3.4.2)
+
+---
+
 ## [3.4.1] - 2025-03-19
 
 ### Changed
 
 * RAD-154: Dependency patching.
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.4.0...3.4.1)
+
 ---
 
 ## [3.4.0] - 2024-12-04
@@ -122,6 +183,8 @@ The changelog is applicable from version `2.7.0` onwards.
 * RAD-1: Make it easy to see latest version.
 * BD-116: Allow doctype to be overidden in asciidoc files.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.3.0...3.4.0)
+
 ---
 
 ## [3.3.0] - 2024-10-01
@@ -130,7 +193,7 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * INS-477: Remove `Chapter` prefix which got introduced by the `:sectnums:` attribute.
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.2.0...HEAD)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.2.0...3.3.0)
 
 ---
 
