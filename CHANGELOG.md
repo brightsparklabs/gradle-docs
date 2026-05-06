@@ -12,6 +12,18 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Added
 
+### Fixed
+
+### Changed
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.0.0...HEAD)
+
+---
+
+## [7.0.0] - 2026-05-06
+
+### Added
+
 * BD-131: Added a new `allowUriRead` configuration option (default: `false`).
 
 ### Fixed
@@ -40,7 +52,7 @@ The changelog is applicable from version `2.7.0` onwards.
     * Bumping the Gradle wrapper to `9.5.0` (required because the `com.brightsparklabs.gradle.baseline:7.0.0`
       plugin is built with Java 25 bytecode, which Gradle 9.0.0 cannot read).
 
-### Changed
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/6.1.0...7.0.0)
 
 ---
 
@@ -50,6 +62,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * ACICGM-41: Include host environment variables in `context` under `env` key.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/6.0.0...6.1.0)
+
 ---
 
 ## [6.0.0] - 2025-12-18
@@ -57,6 +71,8 @@ The changelog is applicable from version `2.7.0` onwards.
 ### Changed
 
 * NSWCC-718: Bump to Java 21
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/5.1.0...6.0.0)
 
 ---
 
@@ -67,6 +83,8 @@ The changelog is applicable from version `2.7.0` onwards.
 * BD-138: Add `format_currency` macro
 * BD-125: Include company name in footer
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/5.0.0...5.1.0)
+
 ---
 
 ## [5.0.0] - 2025-10-07
@@ -75,6 +93,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * RAD-237: Update to Gradle 9
 * RAD-237: Disable `shadowJar` from BSL gradle-baseline which is conflicting with the gradle-publish plugin
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/4.2.0...5.0.0)
 
 ---
 
@@ -88,6 +108,8 @@ The changelog is applicable from version `2.7.0` onwards.
 ### Changed
 
 * NSWCCCLOUD-16: Make repo commit lighter
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/4.1.0...4.2.0)
 
 ---
 
@@ -106,6 +128,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * BD-135: Use table header color which works for link-color.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/4.0.0...4.1.0)
+
 ---
 
 ## [4.0.0] - 2025-05-15
@@ -118,6 +142,8 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * TERA-1868: Enable `asciidoctorj-diagram` by default.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.5.0...4.0.0)
+
 ---
 
 ## [3.5.0] - 2025-05-01
@@ -125,6 +151,8 @@ The changelog is applicable from version `2.7.0` onwards.
 ### Added
 
 * RAD-222: Add `bslDocsInclude` gradle property for filtering document generation.
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.4.2...3.5.0)
 
 ---
 
@@ -134,11 +162,18 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * ACICGM-12: Allow overriding max aliases in a YAML file.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.4.1...3.4.2)
+
+---
+
 ## [3.4.1] - 2025-03-19
 
 ### Changed
 
 * RAD-154: Dependency patching.
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.4.0...3.4.1)
+
 ---
 
 ## [3.4.0] - 2024-12-04
@@ -148,6 +183,8 @@ The changelog is applicable from version `2.7.0` onwards.
 * RAD-1: Make it easy to see latest version.
 * BD-116: Allow doctype to be overidden in asciidoc files.
 
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.3.0...3.4.0)
+
 ---
 
 ## [3.3.0] - 2024-10-01
@@ -156,7 +193,7 @@ The changelog is applicable from version `2.7.0` onwards.
 
 * INS-477: Remove `Chapter` prefix which got introduced by the `:sectnums:` attribute.
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.2.0...HEAD)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/3.2.0...3.3.0)
 
 ---
 
