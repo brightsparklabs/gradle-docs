@@ -23,6 +23,14 @@ Applies brightSPARK Labs standardisation to project documentation.
 | 1.x.y | 6.x.y    | 11
 |===
 
+[IMPORTANT]
+--
+When bumping Java version, ensure version is updated in:
+
+. `.github/workflows/gradle-plugins.yml`
+. `src/main/resources/Dockerfile.j2`
+--
+
 == Build
 
 [source,shell]
