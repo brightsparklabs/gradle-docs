@@ -16,7 +16,17 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.0.0...HEAD)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.0.1...HEAD)
+
+---
+
+## [7.0.1] - 2026-05-15
+
+### Fixed
+
+* NSWCC-805: Ensure generated Dockerfile uses expected Java verson (currently 25).
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.0.0...7.0.1)
 
 ---
 
