@@ -20,7 +20,7 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ---
 
-## [7.0.1] - 2026-05-15
+## [7.1.0] - 2026-08-28
 
 ### Fixed
 
