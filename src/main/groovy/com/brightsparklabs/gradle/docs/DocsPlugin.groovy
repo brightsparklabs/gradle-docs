@@ -93,12 +93,14 @@ class DocsPlugin implements Plugin<Project> {
         def dockerOrPodman = getDockerExecutableName(project)
         if (dockerOrPodman.isEmpty()) {
             project.logger.lifecycle("Docker `buildx` compatible command not available. Excluding tasks which rely on it.")
+            setupTaskDependencies(project)
             return
         }
 
         dockerOrPodman = dockerOrPodman.get()
         setupBuildInDocker(project, config, dockerPdfOutputDir, dockerOrPodman)
         setupWebsiteTasks(project, config, websiteOutputDir, dockerOrPodman)
+        setupTaskDependencies(project)
     }
 
     // --------------------------------------------------------------------------
@@ -150,19 +152,6 @@ class DocsPlugin implements Plugin<Project> {
                 injected.fs.delete { it.delete(asciidoctorOutputDir) }
             }
         }
-        // Use `afterEvaluate` in case another task add the `clean` task.
-        project.afterEvaluate {
-            try {
-                project.tasks.named('clean')
-            }
-            catch (UnknownTaskException ignored) {
-                project.tasks.register('clean') {
-                    group = "brightSPARK Labs - Docs"
-                    description = "Cleans the documentation."
-                }
-            }
-            project.tasks.named('clean') { dependsOn 'cleanJinjaPreProcess' }
-        }
 
         project.tasks.register('jinjaPreProcess', Jinja2PreProcessingTask) {
             group = "brightSPARK Labs - Docs"
@@ -178,8 +167,70 @@ class DocsPlugin implements Plugin<Project> {
             buildscriptVariablesDirProperty.set(buildscriptVariablesDir.getAbsolutePath())
             jinjaOutputDirProperty.set(jinjaOutputDir)
         }
+    }
 
-        project.jinjaPreProcess.dependsOn project.cleanJinjaPreProcess
+    /**
+     * Sets up all task dependencies after all tasks have been registered.
+     *
+     * @param project Gradle project containing the tasks.
+     */
+    private static void setupTaskDependencies(Project project) {
+        // Use `afterEvaluate` in case another plugin has added the `clean` or `build` tasks.
+        project.afterEvaluate {
+            // Ensure `clean` task exists.
+            try {
+                project.tasks.named('clean')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('clean') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Cleans the documentation."
+                }
+            }
+
+            // Ensure `build` task exists.
+            try {
+                project.tasks.named('build')
+            }
+            catch (UnknownTaskException ignored) {
+                project.tasks.register('build') {
+                    group = "brightSPARK Labs - Docs"
+                    description = "Builds the documentation."
+                }
+            }
+
+            // Wire up clean task dependencies.
+            project.tasks.named('clean') {
+                dependsOn 'cleanJinjaPreProcess'
+            }
+
+            // Only add cleanJekyllWebsite dependency if the task exists.
+            try {
+                project.tasks.named('cleanJekyllWebsite')
+                project.tasks.named('clean') { dependsOn 'cleanJekyllWebsite' }
+            }
+            catch (UnknownTaskException ignored) {
+                // Task doesn't exist - this is fine, it means Docker wasn't available.
+            }
+
+            // Wire up Jinja preprocessing dependencies.
+            project.tasks.named('bslGradleDocsExtractResources') { mustRunAfter 'cleanJinjaPreProcess' }
+            project.tasks.named('jinjaPreProcess') {
+                dependsOn 'cleanJinjaPreProcess'
+                dependsOn 'bslGradleDocsExtractResources'
+            }
+
+            // Wire up AsciiDoctor dependencies.
+            project.tasks.named('asciidoctor') { dependsOn 'jinjaPreProcess' }
+            project.tasks.named('asciidoctorPdf') { dependsOn 'jinjaPreProcess' }
+            project.tasks.named('bslAsciidoctor') { dependsOn 'asciidoctor' }
+            project.tasks.named('asciidoctorPdf') { dependsOn 'asciidoctor' }
+            project.tasks.named('bslAsciidoctorPdf') { dependsOn 'asciidoctorPdf' }
+            project.tasks.named('bslAsciidoctorPdfVersioned') { dependsOn 'bslAsciidoctorPdf' }
+
+            // Wire up build task dependency.
+            project.tasks.named('build') { dependsOn 'bslAsciidoctorPdfVersioned' }
+        }
     }
 
     /**
@@ -529,24 +580,6 @@ class DocsPlugin implements Plugin<Project> {
                 }
             }
 
-            try {
-                project.tasks.named('build')
-            }
-            catch (UnknownTaskException ignored) {
-                project.tasks.register('build') {
-                    group = "brightSPARK Labs - Docs"
-                    description = "Builds the documentation."
-                }
-            }
-
-            project.tasks.named('jinjaPreProcess') { dependsOn 'bslGradleDocsExtractResources' }
-            project.tasks.named('asciidoctor') { dependsOn 'jinjaPreProcess' }
-            project.tasks.named('asciidoctorPdf') { dependsOn 'jinjaPreProcess' }
-            project.tasks.named('bslAsciidoctor') { dependsOn 'asciidoctor' }
-            project.tasks.named('asciidoctorPdf') { dependsOn 'asciidoctor' }
-            project.tasks.named('bslAsciidoctorPdf') { dependsOn 'asciidoctorPdf' }
-            project.tasks.named('bslAsciidoctorPdfVersioned') { dependsOn 'bslAsciidoctorPdf' }
-            project.tasks.named('build') { dependsOn 'bslAsciidoctorPdfVersioned' }
         }
     }
 
@@ -719,21 +752,6 @@ class DocsPlugin implements Plugin<Project> {
             doLast {
                 websiteInjected.fs.delete { it.delete(outputDir) }
             }
-        }
-
-        // Use `afterEvaluate` in case another task add the `clean` task.
-        project.afterEvaluate {
-            try {
-                project.tasks.named('clean')
-            }
-            catch (UnknownTaskException ignored) {
-                project.tasks.register('clean') {
-                    group = "brightSPARK Labs - Docs"
-                    description = "Cleans the Jekyll website out of the build directory."
-                }
-            }
-
-            project.tasks.named('clean') { dependsOn 'cleanJekyllWebsite' }
         }
 
         project.tasks.register('generateJekyllWebsite') {

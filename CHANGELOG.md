@@ -16,7 +16,17 @@ The changelog is applicable from version `2.7.0` onwards.
 
 ### Changed
 
-[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.0.1...HEAD)
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.1.0...HEAD)
+
+---
+
+## [7.0.1] - 2026-05-15
+
+### Fixed
+
+* BD-145: Ensure extracted assets are not deleted pre-PDF generation.
+
+[Commits](https://github.com/brightsparklabs/gradle-docker/compare/7.0.1...7.1.0)
 
 ---
 
