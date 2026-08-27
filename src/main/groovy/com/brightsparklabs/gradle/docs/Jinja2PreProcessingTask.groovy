@@ -270,7 +270,6 @@ abstract class Jinja2PreProcessingTask extends DefaultTask {
         }
 
         final File buildImagesDir = new File(projectDir, config.buildImagesDir)
-        fs.delete { it.delete(buildImagesDir) }
         buildImagesDir.mkdirs()
         fs.copy {
             it.from(new File(projectDir, config.sourceImagesDir))
