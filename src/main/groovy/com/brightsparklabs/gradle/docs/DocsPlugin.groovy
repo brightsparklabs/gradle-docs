@@ -579,7 +579,6 @@ class DocsPlugin implements Plugin<Project> {
                     safeMode = org.asciidoctor.SafeMode.SAFE
                 }
             }
-
         }
     }
 
